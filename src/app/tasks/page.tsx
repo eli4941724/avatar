@@ -2,10 +2,11 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
-  getAvatarData,
-  saveAvatarData,
+  completeTask as completeTaskInCloud,
+  createTask as createTaskInCloud,
+  getGameData,
   Task,
-} from "@/lib/avatar-storage";
+} from "@/lib/game-data";
 import styles from "./tasks.module.css";
 
 const categories = [
@@ -40,47 +41,50 @@ export default function TasksPage() {
   const [completedTasks, setCompletedTasks] = useState(0);
 
   const [loaded, setLoaded] = useState(false);
+  const [creatingTask, setCreatingTask] = useState(false);
+  const [completingTaskId, setCompletingTaskId] =
+    useState<number | null>(null);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const [selectedCategory, setSelectedCategory] =
     useState("הכול");
 
-  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [showTaskModal, setShowTaskModal] =
+    useState(false);
 
   const [taskTitle, setTaskTitle] = useState("");
-  const [taskCategory, setTaskCategory] = useState("לימודים");
+  const [taskCategory, setTaskCategory] =
+    useState("לימודים");
 
   useEffect(() => {
-    const data = getAvatarData();
+    let active = true;
 
-    setTasks(data.tasks);
-    setCoins(data.coins);
-    setXp(data.xp);
-    setTotalXp(data.totalXp);
-    setCompletedTasks(data.completedTasks);
+    async function loadData() {
+      const data = await getGameData();
 
-    setLoaded(true);
-  }, []);
+      if (!active) {
+        return;
+      }
 
-  useEffect(() => {
-    if (!loaded) {
-      return;
+      if (!data) {
+        window.location.href = "/login";
+        return;
+      }
+
+      setTasks(data.tasks);
+      setCoins(data.coins);
+      setXp(data.xp);
+      setTotalXp(data.totalXp);
+      setCompletedTasks(data.completedTasks);
+      setLoaded(true);
     }
 
-    saveAvatarData({
-      tasks,
-      coins,
-      xp,
-      totalXp,
-      completedTasks,
-    });
-  }, [
-    tasks,
-    coins,
-    xp,
-    totalXp,
-    completedTasks,
-    loaded,
-  ]);
+    void loadData();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const filteredTasks = useMemo(() => {
     if (selectedCategory === "הכול") {
@@ -92,30 +96,32 @@ export default function TasksPage() {
     );
   }, [tasks, selectedCategory]);
 
-  function addTask(event: FormEvent<HTMLFormElement>) {
+  async function addTask(
+    event: FormEvent<HTMLFormElement>
+  ) {
     event.preventDefault();
 
     const cleanTitle = taskTitle.trim();
 
-    if (!cleanTitle) {
+    if (!cleanTitle || creatingTask) {
       return;
     }
 
-    const selected =
-      categories.find(
-        (category) => category.name === taskCategory
-      ) ?? categories[1];
+    setCreatingTask(true);
+    setErrorMessage("");
 
-    const reward = calculateReward(cleanTitle);
+    const newTask = await createTaskInCloud(
+      cleanTitle,
+      taskCategory
+    );
 
-    const newTask: Task = {
-      id: Date.now(),
-      title: cleanTitle,
-      category: taskCategory,
-      reward: reward.coins,
-      xp: reward.xp,
-      icon: selected.icon,
-    };
+    if (!newTask) {
+      setErrorMessage(
+        "לא הצלחנו ליצור את המשימה. נסי שוב."
+      );
+      setCreatingTask(false);
+      return;
+    }
 
     setTasks((currentTasks) => [
       newTask,
@@ -125,30 +131,43 @@ export default function TasksPage() {
     setTaskTitle("");
     setTaskCategory("לימודים");
     setShowTaskModal(false);
+    setCreatingTask(false);
   }
 
-  function completeTask(task: Task) {
+  async function completeTask(task: Task) {
+    if (completingTaskId !== null) {
+      return;
+    }
+
+    setCompletingTaskId(task.id);
+    setErrorMessage("");
+
+    const updatedProgress =
+      await completeTaskInCloud(task.id);
+
+    if (!updatedProgress) {
+      setErrorMessage(
+        "לא הצלחנו להשלים את המשימה. נסי שוב."
+      );
+      setCompletingTaskId(null);
+      return;
+    }
+
     setTasks((currentTasks) =>
       currentTasks.filter(
-        (currentTask) => currentTask.id !== task.id
+        (currentTask) =>
+          currentTask.id !== task.id
       )
     );
 
-    setCoins(
-      (currentCoins) => currentCoins + task.reward
-    );
-
-    setXp(
-      (currentXp) => currentXp + task.xp
-    );
-
-    setTotalXp(
-      (currentXp) => currentXp + task.xp
-    );
-
+    setCoins(updatedProgress.coins);
+    setXp(updatedProgress.xp);
+    setTotalXp(updatedProgress.totalXp);
     setCompletedTasks(
-      (current) => current + 1
+      updatedProgress.completedTasks
     );
+
+    setCompletingTaskId(null);
   }
 
   function goHome() {
@@ -157,14 +176,20 @@ export default function TasksPage() {
 
   if (!loaded) {
     return (
-      <main className={styles.loading} dir="rtl">
+      <main
+        className={styles.loading}
+        dir="rtl"
+      >
         טוענים את המשימות...
       </main>
     );
   }
 
   return (
-    <main className={styles.page} dir="rtl">
+    <main
+      className={styles.page}
+      dir="rtl"
+    >
       <header className={styles.topbar}>
         <button
           className={styles.backButton}
@@ -180,6 +205,7 @@ export default function TasksPage() {
 
         <div className={styles.coinBox}>
           <span>🪙</span>
+
           <strong>
             {coins.toLocaleString("he-IL")}
           </strong>
@@ -187,17 +213,31 @@ export default function TasksPage() {
       </header>
 
       <section className={styles.content}>
+        {errorMessage && (
+          <div
+            style={{
+              marginBottom: "16px",
+              padding: "12px 14px",
+              borderRadius: "12px",
+              background: "#fff5f5",
+              color: "#a33c3c",
+              fontSize: "13px",
+              fontWeight: 700,
+            }}
+          >
+            ⚠️ {errorMessage}
+          </div>
+        )}
+
         <div className={styles.hero}>
           <div>
             <p>המשימות שלי</p>
 
-            <h1>
-              מה עושים היום? ✅
-            </h1>
+            <h1>מה עושים היום? ✅</h1>
 
             <span>
-              כל משימה שסיימת מקדמת אותך, נותנת XP
-              ומוסיפה מטבעות לחנות.
+              כל משימה שסיימת מקדמת אותך,
+              נותנת XP ומוסיפה מטבעות לחנות.
             </span>
           </div>
 
@@ -226,7 +266,9 @@ export default function TasksPage() {
 
             <div>
               <small>הושלמו</small>
-              <strong>{completedTasks}</strong>
+              <strong>
+                {completedTasks}
+              </strong>
             </div>
           </div>
 
@@ -235,8 +277,11 @@ export default function TasksPage() {
 
             <div>
               <small>סה״כ XP</small>
+
               <strong>
-                {totalXp.toLocaleString("he-IL")}
+                {totalXp.toLocaleString(
+                  "he-IL"
+                )}
               </strong>
             </div>
           </div>
@@ -247,21 +292,29 @@ export default function TasksPage() {
             <button
               key={category.name}
               className={
-                selectedCategory === category.name
+                selectedCategory ===
+                category.name
                   ? styles.activeFilter
                   : styles.filterButton
               }
               onClick={() =>
-                setSelectedCategory(category.name)
+                setSelectedCategory(
+                  category.name
+                )
               }
             >
-              {category.icon} {category.name}
+              {category.icon}{" "}
+              {category.name}
             </button>
           ))}
         </div>
 
-        <section className={styles.tasksSection}>
-          <div className={styles.sectionHeading}>
+        <section
+          className={styles.tasksSection}
+        >
+          <div
+            className={styles.sectionHeading}
+          >
             <div>
               <p>
                 {selectedCategory === "הכול"
@@ -289,30 +342,44 @@ export default function TasksPage() {
                   className={styles.taskCard}
                 >
                   <button
-                    className={styles.checkButton}
+                    className={
+                      styles.checkButton
+                    }
                     onClick={() =>
                       completeTask(task)
                     }
                     aria-label={`סיום המשימה ${task.title}`}
+                    disabled={
+                      completingTaskId !== null
+                    }
                   >
                     ✓
                   </button>
 
-                  <div className={styles.taskIcon}>
+                  <div
+                    className={styles.taskIcon}
+                  >
                     {task.icon}
                   </div>
 
-                  <div className={styles.taskInfo}>
+                  <div
+                    className={styles.taskInfo}
+                  >
                     <h3>{task.title}</h3>
 
                     <p>
-                      {task.category} · +{task.xp} XP
+                      {task.category} · +
+                      {task.xp} XP
                     </p>
                   </div>
 
-                  <div className={styles.reward}>
+                  <div
+                    className={styles.reward}
+                  >
                     <span>🪙</span>
-                    <strong>{task.reward}</strong>
+                    <strong>
+                      {task.reward}
+                    </strong>
                   </div>
                 </article>
               ))}
@@ -322,12 +389,13 @@ export default function TasksPage() {
               <div>🎉</div>
 
               <h3>
-                אין משימות בקטגוריה הזאת
+                אין משימות בקטגוריה
+                הזאת
               </h3>
 
               <p>
-                אפשר לבחור קטגוריה אחרת או ליצור
-                משימה חדשה.
+                אפשר לבחור קטגוריה אחרת
+                או ליצור משימה חדשה.
               </p>
 
               <button
@@ -356,7 +424,9 @@ export default function TasksPage() {
             }
           >
             <button
-              className={styles.closeButton}
+              className={
+                styles.closeButton
+              }
               onClick={() =>
                 setShowTaskModal(false)
               }
@@ -364,22 +434,22 @@ export default function TasksPage() {
               ×
             </button>
 
-            <div className={styles.modalIcon}>
+            <div
+              className={styles.modalIcon}
+            >
               ✨
             </div>
 
-            <p className={styles.modalLabel}>
+            <p
+              className={styles.modalLabel}
+            >
               משימה חדשה
             </p>
 
-            <h2>
-              מה צריך לעשות?
-            </h2>
+            <h2>מה צריך לעשות?</h2>
 
             <form onSubmit={addTask}>
-              <label>
-                המשימה
-              </label>
+              <label>המשימה</label>
 
               <input
                 type="text"
@@ -394,9 +464,7 @@ export default function TasksPage() {
                 maxLength={100}
               />
 
-              <label>
-                קטגוריה
-              </label>
+              <label>קטגוריה</label>
 
               <select
                 value={taskCategory}
@@ -409,7 +477,8 @@ export default function TasksPage() {
                 {categories
                   .filter(
                     (category) =>
-                      category.name !== "הכול"
+                      category.name !==
+                      "הכול"
                   )
                   .map((category) => (
                     <option
@@ -424,9 +493,13 @@ export default function TasksPage() {
 
               {taskTitle.trim() && (
                 <div
-                  className={styles.rewardPreview}
+                  className={
+                    styles.rewardPreview
+                  }
                 >
-                  <span>התגמול המשוער</span>
+                  <span>
+                    התגמול המשוער
+                  </span>
 
                   <div>
                     <strong>
@@ -452,11 +525,18 @@ export default function TasksPage() {
               )}
 
               <button
-                className={styles.createButton}
+                className={
+                  styles.createButton
+                }
                 type="submit"
-                disabled={!taskTitle.trim()}
+                disabled={
+                  !taskTitle.trim() ||
+                  creatingTask
+                }
               >
-                ליצור משימה
+                {creatingTask
+                  ? "יוצרים..."
+                  : "ליצור משימה"}
               </button>
             </form>
           </div>

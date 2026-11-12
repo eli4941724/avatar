@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import {
-  getAvatarData,
-  saveAvatarData,
-} from "@/lib/avatar-storage";
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import {
+  getGameData,
+  purchaseItem,
+} from "@/lib/game-data";
 import styles from "./shop.module.css";
 
 type ShopItem = {
@@ -13,7 +17,11 @@ type ShopItem = {
   category: string;
   price: number;
   emoji: string;
-  rarity: "רגיל" | "נדיר" | "אפי" | "אגדי";
+  rarity:
+    | "רגיל"
+    | "נדיר"
+    | "אפי"
+    | "אגדי";
 };
 
 const shopItems: ShopItem[] = [
@@ -125,42 +133,92 @@ const categories = [
 ];
 
 export default function ShopPage() {
-  const [coins, setCoins] = useState(0);
+  const [coins, setCoins] =
+    useState(0);
 
-  const [ownedItems, setOwnedItems] = useState<string[]>(
-    []
-  );
+  const [
+    ownedItems,
+    setOwnedItems,
+  ] = useState<string[]>([]);
 
-  const [selectedCategory, setSelectedCategory] =
-    useState("הכול");
+  const [
+    selectedCategory,
+    setSelectedCategory,
+  ] = useState("הכול");
 
-  const [message, setMessage] = useState("");
+  const [message, setMessage] =
+    useState("");
 
-  const [loaded, setLoaded] = useState(false);
+  const [loaded, setLoaded] =
+    useState(false);
+
+  const [
+    purchasingItemId,
+    setPurchasingItemId,
+  ] = useState<string | null>(null);
 
   useEffect(() => {
-    const data = getAvatarData();
+    let active = true;
 
-    setCoins(data.coins);
-    setOwnedItems(data.ownedItems);
+    async function loadData() {
+      const data =
+        await getGameData();
 
-    setLoaded(true);
-  }, []);
+      if (!active) {
+        return;
+      }
 
-  const filteredItems = useMemo(() => {
-    if (selectedCategory === "הכול") {
-      return shopItems;
+      if (!data) {
+        window.location.href =
+          "/login";
+        return;
+      }
+
+      setCoins(data.coins);
+      setOwnedItems(
+        data.ownedItems
+      );
+      setLoaded(true);
     }
 
-    return shopItems.filter(
-      (item) =>
-        item.category === selectedCategory
-    );
-  }, [selectedCategory]);
+    void loadData();
 
-  function buyItem(item: ShopItem) {
-    if (ownedItems.includes(item.id)) {
-      setMessage("הפריט הזה כבר בבעלותך 😎");
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const filteredItems =
+    useMemo(() => {
+      if (
+        selectedCategory ===
+        "הכול"
+      ) {
+        return shopItems;
+      }
+
+      return shopItems.filter(
+        (item) =>
+          item.category ===
+          selectedCategory
+      );
+    }, [selectedCategory]);
+
+  async function buyItem(
+    item: ShopItem
+  ) {
+    if (
+      purchasingItemId !== null
+    ) {
+      return;
+    }
+
+    if (
+      ownedItems.includes(item.id)
+    ) {
+      setMessage(
+        "הפריט הזה כבר בבעלותך 😎"
+      );
       return;
     }
 
@@ -168,31 +226,46 @@ export default function ShopPage() {
       setMessage(
         `חסרים לך ${(
           item.price - coins
-        ).toLocaleString("he-IL")} מטבעות 🪙`
+        ).toLocaleString(
+          "he-IL"
+        )} מטבעות 🪙`
       );
 
       return;
     }
 
-    const newCoins = coins - item.price;
+    setPurchasingItemId(
+      item.id
+    );
 
-    const newOwnedItems = [
-      ...ownedItems,
-      item.id,
-    ];
+    const purchase =
+      await purchaseItem(
+        item.id
+      );
 
-    setCoins(newCoins);
+    if (!purchase) {
+      setMessage(
+        "לא הצלחנו להשלים את הקנייה. נסי שוב."
+      );
 
-    setOwnedItems(newOwnedItems);
+      setPurchasingItemId(
+        null
+      );
 
-    saveAvatarData({
-      coins: newCoins,
-      ownedItems: newOwnedItems,
-    });
+      return;
+    }
+
+    setCoins(purchase.coins);
+
+    setOwnedItems(
+      purchase.ownedItems
+    );
 
     setMessage(
       `🎉 קנית את "${item.name}"!`
     );
+
+    setPurchasingItemId(null);
   }
 
   function goHome() {
@@ -202,7 +275,9 @@ export default function ShopPage() {
   if (!loaded) {
     return (
       <main
-        className={styles.loading}
+        className={
+          styles.loading
+        }
         dir="rtl"
       >
         טוענים את החנות...
@@ -212,30 +287,52 @@ export default function ShopPage() {
 
   return (
     <main
-      className={styles.shopPage}
+      className={
+        styles.shopPage
+      }
       dir="rtl"
     >
-      <header className={styles.header}>
-        <div className={styles.headerTop}>
+      <header
+        className={styles.header}
+      >
+        <div
+          className={
+            styles.headerTop
+          }
+        >
           <button
-            className={styles.backButton}
+            className={
+              styles.backButton
+            }
             onClick={goHome}
           >
             → חזרה לבית
           </button>
 
-          <div className={styles.balance}>
+          <div
+            className={
+              styles.balance
+            }
+          >
             <span>🪙</span>
 
             <strong>
-              {coins.toLocaleString("he-IL")}
+              {coins.toLocaleString(
+                "he-IL"
+              )}
             </strong>
           </div>
         </div>
 
-        <div className={styles.hero}>
+        <div
+          className={styles.hero}
+        >
           <div>
-            <p className={styles.label}>
+            <p
+              className={
+                styles.label
+              }
+            >
               AVATAR SHOP
             </p>
 
@@ -244,12 +341,18 @@ export default function ShopPage() {
             </h1>
 
             <p>
-              סיימת משימות? עכשיו מגיע החלק הכיפי.
-              השתמשי במטבעות כדי לשדרג את הדמות שלך.
+              סיימת משימות? עכשיו
+              מגיע החלק הכיפי.
+              השתמשי במטבעות כדי
+              לשדרג את הדמות שלך.
             </p>
           </div>
 
-          <div className={styles.heroDecoration}>
+          <div
+            className={
+              styles.heroDecoration
+            }
+          >
             <span>👟</span>
             <span>👑</span>
             <span>🕶️</span>
@@ -257,166 +360,238 @@ export default function ShopPage() {
         </div>
       </header>
 
-      <section className={styles.shopContent}>
+      <section
+        className={
+          styles.shopContent
+        }
+      >
         {message && (
-          <div className={styles.message}>
-            <span>{message}</span>
+          <div
+            className={
+              styles.message
+            }
+          >
+            <span>
+              {message}
+            </span>
 
             <button
-              onClick={() => setMessage("")}
+              onClick={() =>
+                setMessage("")
+              }
             >
               ×
             </button>
           </div>
         )}
 
-        <div className={styles.categoryBar}>
-          {categories.map((category) => (
-            <button
-              key={category}
-              className={
-                selectedCategory === category
-                  ? styles.activeCategory
-                  : styles.categoryButton
-              }
-              onClick={() =>
-                setSelectedCategory(category)
-              }
-            >
-              {category}
-            </button>
-          ))}
+        <div
+          className={
+            styles.categoryBar
+          }
+        >
+          {categories.map(
+            (category) => (
+              <button
+                key={category}
+                className={
+                  selectedCategory ===
+                  category
+                    ? styles.activeCategory
+                    : styles.categoryButton
+                }
+                onClick={() =>
+                  setSelectedCategory(
+                    category
+                  )
+                }
+              >
+                {category}
+              </button>
+            )
+          )}
         </div>
 
-        <div className={styles.sectionHeading}>
+        <div
+          className={
+            styles.sectionHeading
+          }
+        >
           <div>
             <p>
-              {selectedCategory === "הכול"
+              {selectedCategory ===
+              "הכול"
                 ? "כל הפריטים"
                 : selectedCategory}
             </p>
 
             <h2>
-              מצאי משהו שאת אוהבת ✨
+              מצאי משהו שאת אוהבת
+              ✨
             </h2>
           </div>
 
           <span>
-            {filteredItems.length} פריטים
+            {filteredItems.length}{" "}
+            פריטים
           </span>
         </div>
 
-        <div className={styles.grid}>
-          {filteredItems.map((item) => {
-            const owned = ownedItems.includes(
-              item.id
-            );
+        <div
+          className={styles.grid}
+        >
+          {filteredItems.map(
+            (item) => {
+              const owned =
+                ownedItems.includes(
+                  item.id
+                );
 
-            const canAfford =
-              coins >= item.price;
+              const canAfford =
+                coins >= item.price;
 
-            return (
-              <article
-                key={item.id}
-                className={styles.itemCard}
-              >
-                <div
-                  className={styles.itemPreview}
+              return (
+                <article
+                  key={item.id}
+                  className={
+                    styles.itemCard
+                  }
                 >
-                  <span>{item.emoji}</span>
-
-                  <div
-                    className={`${styles.rarity} ${
-                      styles[
-                        `rarity${item.rarity}`
-                      ]
-                    }`}
-                  >
-                    {item.rarity}
-                  </div>
-                </div>
-
-                <div
-                  className={styles.itemDetails}
-                >
-                  <span
-                    className={
-                      styles.itemCategory
-                    }
-                  >
-                    {item.category}
-                  </span>
-
-                  <h3>{item.name}</h3>
-
                   <div
                     className={
-                      styles.itemBottom
+                      styles.itemPreview
                     }
                   >
+                    <span>
+                      {item.emoji}
+                    </span>
+
                     <div
+                      className={`${
+                        styles.rarity
+                      } ${
+                        styles[
+                          `rarity${item.rarity}`
+                        ]
+                      }`}
+                    >
+                      {item.rarity}
+                    </div>
+                  </div>
+
+                  <div
+                    className={
+                      styles.itemDetails
+                    }
+                  >
+                    <span
                       className={
-                        styles.itemPrice
+                        styles.itemCategory
                       }
                     >
-                      <span>🪙</span>
+                      {item.category}
+                    </span>
 
-                      <strong>
-                        {item.price.toLocaleString(
-                          "he-IL"
-                        )}
-                      </strong>
+                    <h3>
+                      {item.name}
+                    </h3>
+
+                    <div
+                      className={
+                        styles.itemBottom
+                      }
+                    >
+                      <div
+                        className={
+                          styles.itemPrice
+                        }
+                      >
+                        <span>
+                          🪙
+                        </span>
+
+                        <strong>
+                          {item.price.toLocaleString(
+                            "he-IL"
+                          )}
+                        </strong>
+                      </div>
+
+                      {owned ? (
+                        <button
+                          className={
+                            styles.ownedButton
+                          }
+                          disabled
+                        >
+                          ✓ בבעלותך
+                        </button>
+                      ) : (
+                        <button
+                          className={
+                            canAfford
+                              ? styles.buyButton
+                              : styles.expensiveButton
+                          }
+                          onClick={() =>
+                            buyItem(
+                              item
+                            )
+                          }
+                          disabled={
+                            purchasingItemId !==
+                            null
+                          }
+                        >
+                          {purchasingItemId ===
+                          item.id
+                            ? "קונה..."
+                            : canAfford
+                              ? "לקנות"
+                              : "חסרים מטבעות"}
+                        </button>
+                      )}
                     </div>
-
-                    {owned ? (
-                      <button
-                        className={
-                          styles.ownedButton
-                        }
-                        disabled
-                      >
-                        ✓ בבעלותך
-                      </button>
-                    ) : (
-                      <button
-                        className={
-                          canAfford
-                            ? styles.buyButton
-                            : styles.expensiveButton
-                        }
-                        onClick={() =>
-                          buyItem(item)
-                        }
-                      >
-                        {canAfford
-                          ? "לקנות"
-                          : "חסרים מטבעות"}
-                      </button>
-                    )}
                   </div>
-                </div>
-              </article>
-            );
-          })}
+                </article>
+              );
+            }
+          )}
         </div>
 
-        <section className={styles.inventory}>
+        <section
+          className={
+            styles.inventory
+          }
+        >
           <div>
-            <p className={styles.label}>
+            <p
+              className={
+                styles.label
+              }
+            >
               האוסף שלי
             </p>
 
             <h2>
-              יש לך {ownedItems.length} פריטים
+              יש לך{" "}
+              {ownedItems.length}{" "}
+              פריטים
             </h2>
 
             <p>
-              בשלב הבא נבנה את חדר ההלבשה, ושם יהיה אפשר
-              להלביש על ה־Avatar את כל מה שקנית.
+              כל הפריטים שקנית
+              נשמרים עכשיו בחשבון
+              שלך בענן ויופיעו בחדר
+              ההלבשה.
             </p>
           </div>
 
-          <div className={styles.inventoryIcon}>
+          <div
+            className={
+              styles.inventoryIcon
+            }
+          >
             👤
           </div>
         </section>

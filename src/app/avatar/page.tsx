@@ -1,19 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import {
+  useEffect,
+  useState,
+} from "react";
+import {
+  defaultEquippedItems,
   EquippedItems,
-  getAvatarData,
-  saveAvatarData,
-} from "@/lib/avatar-storage";
+  getGameData,
+  ItemType,
+  toggleEquippedItem,
+} from "@/lib/game-data";
 import styles from "./avatar.module.css";
-
-type ItemType =
-  | "clothing"
-  | "shoes"
-  | "accessory"
-  | "hair"
-  | "special";
 
 type AvatarItem = {
   id: string;
@@ -97,7 +95,10 @@ const avatarItems: AvatarItem[] = [
   },
 ];
 
-const categoryNames: Record<ItemType, string> = {
+const categoryNames: Record<
+  ItemType,
+  string
+> = {
   clothing: "בגדים",
   shoes: "נעליים",
   accessory: "אביזרים",
@@ -106,47 +107,114 @@ const categoryNames: Record<ItemType, string> = {
 };
 
 export default function AvatarPage() {
-  const [ownedItems, setOwnedItems] = useState<string[]>(
-    []
+  const [
+    ownedItems,
+    setOwnedItems,
+  ] = useState<string[]>([]);
+
+  const [
+    equippedItems,
+    setEquippedItems,
+  ] = useState<EquippedItems>({
+    ...defaultEquippedItems,
+  });
+
+  const [loaded, setLoaded] =
+    useState(false);
+
+  const [
+    equippingItemId,
+    setEquippingItemId,
+  ] = useState<string | null>(
+    null
   );
 
-  const [equippedItems, setEquippedItems] =
-    useState<EquippedItems>({
-      clothing: null,
-      shoes: null,
-      accessory: null,
-      hair: null,
-      special: null,
-    });
+  const [message, setMessage] =
+    useState("");
 
-  const [loaded, setLoaded] = useState(false);
-
-  const [selectedCategory, setSelectedCategory] =
-    useState<ItemType>("clothing");
+  const [
+    selectedCategory,
+    setSelectedCategory,
+  ] =
+    useState<ItemType>(
+      "clothing"
+    );
 
   useEffect(() => {
-    const data = getAvatarData();
+    let active = true;
 
-    setOwnedItems(data.ownedItems);
-    setEquippedItems(data.equippedItems);
+    async function loadData() {
+      const data =
+        await getGameData();
 
-    setLoaded(true);
+      if (!active) {
+        return;
+      }
+
+      if (!data) {
+        window.location.href =
+          "/login";
+        return;
+      }
+
+      setOwnedItems(
+        data.ownedItems
+      );
+
+      setEquippedItems(
+        data.equippedItems
+      );
+
+      setLoaded(true);
+    }
+
+    void loadData();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  function equipItem(item: AvatarItem) {
-    const newEquippedItems = {
-      ...equippedItems,
-      [item.type]:
-        equippedItems[item.type] === item.id
-          ? null
-          : item.id,
-    };
+  async function equipItem(
+    item: AvatarItem
+  ) {
+    if (
+      equippingItemId !== null
+    ) {
+      return;
+    }
 
-    setEquippedItems(newEquippedItems);
+    setEquippingItemId(
+      item.id
+    );
 
-    saveAvatarData({
-      equippedItems: newEquippedItems,
-    });
+    setMessage("");
+
+    const updatedEquippedItems =
+      await toggleEquippedItem(
+        item.id,
+        item.type
+      );
+
+    if (
+      !updatedEquippedItems
+    ) {
+      setMessage(
+        "לא הצלחנו לעדכן את הדמות. נסי שוב."
+      );
+
+      setEquippingItemId(
+        null
+      );
+
+      return;
+    }
+
+    setEquippedItems(
+      updatedEquippedItems
+    );
+
+    setEquippingItemId(null);
   }
 
   function goHome() {
@@ -154,56 +222,112 @@ export default function AvatarPage() {
   }
 
   function goShop() {
-    window.location.href = "/shop";
+    window.location.href =
+      "/shop";
   }
 
-  const ownedAvatarItems = avatarItems.filter((item) =>
-    ownedItems.includes(item.id)
-  );
+  const ownedAvatarItems =
+    avatarItems.filter((item) =>
+      ownedItems.includes(item.id)
+    );
 
-  const categoryItems = ownedAvatarItems.filter(
-    (item) => item.type === selectedCategory
-  );
+  const categoryItems =
+    ownedAvatarItems.filter(
+      (item) =>
+        item.type ===
+        selectedCategory
+    );
 
-  const clothing = equippedItems.clothing;
-  const shoes = equippedItems.shoes;
-  const accessory = equippedItems.accessory;
-  const hair = equippedItems.hair;
-  const special = equippedItems.special;
+  const clothing =
+    equippedItems.clothing;
+
+  const shoes =
+    equippedItems.shoes;
+
+  const accessory =
+    equippedItems.accessory;
+
+  const hair =
+    equippedItems.hair;
+
+  const special =
+    equippedItems.special;
 
   if (!loaded) {
     return (
-      <main className={styles.loading} dir="rtl">
+      <main
+        className={styles.loading}
+        dir="rtl"
+      >
         טוענים את הדמות...
       </main>
     );
   }
 
   return (
-    <main className={styles.page} dir="rtl">
-      <header className={styles.topbar}>
+    <main
+      className={styles.page}
+      dir="rtl"
+    >
+      <header
+        className={styles.topbar}
+      >
         <button
-          className={styles.backButton}
+          className={
+            styles.backButton
+          }
           onClick={goHome}
         >
           → חזרה לבית
         </button>
 
-        <div className={styles.logo}>
+        <div
+          className={styles.logo}
+        >
           <div>A</div>
           Avatar
         </div>
 
         <button
-          className={styles.shopButton}
+          className={
+            styles.shopButton
+          }
           onClick={goShop}
         >
           🛍️ חנות
         </button>
       </header>
 
-      <section className={styles.content}>
-        <div className={styles.heading}>
+      <section
+        className={
+          styles.content
+        }
+      >
+        {message && (
+          <div
+            style={{
+              marginBottom:
+                "16px",
+              padding:
+                "12px 14px",
+              borderRadius:
+                "12px",
+              background:
+                "#fff5f5",
+              color: "#a33c3c",
+              fontSize: "13px",
+              fontWeight: 700,
+            }}
+          >
+            ⚠️ {message}
+          </div>
+        )}
+
+        <div
+          className={
+            styles.heading
+          }
+        >
           <p>הדמות שלי</p>
 
           <h1>
@@ -211,51 +335,108 @@ export default function AvatarPage() {
           </h1>
 
           <span>
-            בחרי את הפריטים שקנית ועצבי את הדמות
-            בדיוק כמו שאת רוצה.
+            בחרי את הפריטים שקנית
+            ועצבי את הדמות בדיוק כמו
+            שאת רוצה.
           </span>
         </div>
 
-        <div className={styles.mainGrid}>
-          <section className={styles.avatarPanel}>
-            <div className={styles.avatarBackground}>
-              {special === "wings" && (
-                <div className={styles.wings}>
+        <div
+          className={
+            styles.mainGrid
+          }
+        >
+          <section
+            className={
+              styles.avatarPanel
+            }
+          >
+            <div
+              className={
+                styles.avatarBackground
+              }
+            >
+              {special ===
+                "wings" && (
+                <div
+                  className={
+                    styles.wings
+                  }
+                >
                   🪽
                 </div>
               )}
 
-              <div className={styles.character}>
-                {accessory === "crown" && (
-                  <div className={styles.crown}>
+              <div
+                className={
+                  styles.character
+                }
+              >
+                {accessory ===
+                  "crown" && (
+                  <div
+                    className={
+                      styles.crown
+                    }
+                  >
                     👑
                   </div>
                 )}
 
-                {accessory === "purple-cap" && (
-                  <div className={styles.cap}>
+                {accessory ===
+                  "purple-cap" && (
+                  <div
+                    className={
+                      styles.cap
+                    }
+                  >
                     🧢
                   </div>
                 )}
 
                 <div
-                  className={`${styles.hair} ${
-                    hair === "pink-hair"
+                  className={`${
+                    styles.hair
+                  } ${
+                    hair ===
+                    "pink-hair"
                       ? styles.pinkHair
-                      : hair === "cool-hair"
+                      : hair ===
+                          "cool-hair"
                         ? styles.coolHair
                         : ""
                   }`}
                 />
 
-                <div className={styles.head}>
-                  <div className={styles.eyeLeft} />
-                  <div className={styles.eyeRight} />
-                  <div className={styles.smile} />
+                <div
+                  className={
+                    styles.head
+                  }
+                >
+                  <div
+                    className={
+                      styles.eyeLeft
+                    }
+                  />
 
-                  {accessory === "sunglasses" && (
+                  <div
+                    className={
+                      styles.eyeRight
+                    }
+                  />
+
+                  <div
+                    className={
+                      styles.smile
+                    }
+                  />
+
+                  {accessory ===
+                    "sunglasses" && (
                     <div
-                      className={styles.sunglasses}
+                      className={
+                        styles.sunglasses
+                      }
                     >
                       🕶️
                     </div>
@@ -263,38 +444,61 @@ export default function AvatarPage() {
                 </div>
 
                 <div
-                  className={`${styles.body} ${
-                    clothing === "purple-hoodie"
+                  className={`${
+                    styles.body
+                  } ${
+                    clothing ===
+                    "purple-hoodie"
                       ? styles.purpleHoodie
-                      : clothing === "black-jacket"
+                      : clothing ===
+                          "black-jacket"
                         ? styles.blackJacket
-                        : clothing === "cool-jeans"
+                        : clothing ===
+                            "cool-jeans"
                           ? styles.coolOutfit
                           : ""
                   }`}
                 />
 
                 <div
-                  className={`${styles.leg} ${styles.leftLeg}`}
+                  className={`${
+                    styles.leg
+                  } ${
+                    styles.leftLeg
+                  }`}
                 />
 
                 <div
-                  className={`${styles.leg} ${styles.rightLeg}`}
+                  className={`${
+                    styles.leg
+                  } ${
+                    styles.rightLeg
+                  }`}
                 />
 
                 {shoes && (
                   <>
                     <div
-                      className={`${styles.shoe} ${styles.leftShoe} ${
-                        shoes === "boots"
+                      className={`${
+                        styles.shoe
+                      } ${
+                        styles.leftShoe
+                      } ${
+                        shoes ===
+                        "boots"
                           ? styles.boot
                           : styles.sneaker
                       }`}
                     />
 
                     <div
-                      className={`${styles.shoe} ${styles.rightShoe} ${
-                        shoes === "boots"
+                      className={`${
+                        styles.shoe
+                      } ${
+                        styles.rightShoe
+                      } ${
+                        shoes ===
+                        "boots"
                           ? styles.boot
                           : styles.sneaker
                       }`}
@@ -303,126 +507,209 @@ export default function AvatarPage() {
                 )}
               </div>
 
-              {special === "pet" && (
-                <div className={styles.pet}>
+              {special ===
+                "pet" && (
+                <div
+                  className={
+                    styles.pet
+                  }
+                >
                   🐶
                 </div>
               )}
 
-              <div className={styles.floorShadow} />
+              <div
+                className={
+                  styles.floorShadow
+                }
+              />
             </div>
 
-            <div className={styles.avatarInfo}>
+            <div
+              className={
+                styles.avatarInfo
+              }
+            >
               <div>
-                <strong>ה־Avatar שלך</strong>
+                <strong>
+                  ה־Avatar שלך
+                </strong>
+
                 <p>
-                  כל שינוי נשמר אוטומטית.
+                  כל שינוי נשמר
+                  אוטומטית בענן.
                 </p>
               </div>
 
               <span>
-                {Object.values(equippedItems).filter(
-                  Boolean
-                ).length}{" "}
+                {
+                  Object.values(
+                    equippedItems
+                  ).filter(Boolean)
+                    .length
+                }{" "}
                 פריטים בשימוש
               </span>
             </div>
           </section>
 
-          <section className={styles.wardrobe}>
-            <div className={styles.wardrobeTitle}>
+          <section
+            className={
+              styles.wardrobe
+            }
+          >
+            <div
+              className={
+                styles.wardrobeTitle
+              }
+            >
               <div>
-                <p>חדר ההלבשה</p>
-                <h2>הפריטים שלי</h2>
+                <p>
+                  חדר ההלבשה
+                </p>
+
+                <h2>
+                  הפריטים שלי
+                </h2>
               </div>
 
               <span>
-                {ownedAvatarItems.length} פריטים
+                {
+                  ownedAvatarItems.length
+                }{" "}
+                פריטים
               </span>
             </div>
 
-            <div className={styles.categories}>
+            <div
+              className={
+                styles.categories
+              }
+            >
               {(
                 Object.keys(
                   categoryNames
                 ) as ItemType[]
-              ).map((category) => (
-                <button
-                  key={category}
-                  className={
-                    selectedCategory === category
-                      ? styles.activeCategory
-                      : styles.category
-                  }
-                  onClick={() =>
-                    setSelectedCategory(category)
-                  }
-                >
-                  {categoryNames[category]}
-                </button>
-              ))}
+              ).map(
+                (category) => (
+                  <button
+                    key={
+                      category
+                    }
+                    className={
+                      selectedCategory ===
+                      category
+                        ? styles.activeCategory
+                        : styles.category
+                    }
+                    onClick={() =>
+                      setSelectedCategory(
+                        category
+                      )
+                    }
+                  >
+                    {
+                      categoryNames[
+                        category
+                      ]
+                    }
+                  </button>
+                )
+              )}
             </div>
 
-            {categoryItems.length > 0 ? (
-              <div className={styles.itemsGrid}>
-                {categoryItems.map((item) => {
-                  const equipped =
-                    equippedItems[item.type] ===
-                    item.id;
+            {categoryItems.length >
+            0 ? (
+              <div
+                className={
+                  styles.itemsGrid
+                }
+              >
+                {categoryItems.map(
+                  (item) => {
+                    const equipped =
+                      equippedItems[
+                        item.type
+                      ] === item.id;
 
-                  return (
-                    <button
-                      key={item.id}
-                      className={
-                        equipped
-                          ? styles.equippedItem
-                          : styles.item
-                      }
-                      onClick={() =>
-                        equipItem(item)
-                      }
-                    >
-                      <div
+                    return (
+                      <button
+                        key={
+                          item.id
+                        }
                         className={
-                          styles.itemPreview
+                          equipped
+                            ? styles.equippedItem
+                            : styles.item
+                        }
+                        onClick={() =>
+                          equipItem(
+                            item
+                          )
+                        }
+                        disabled={
+                          equippingItemId !==
+                          null
                         }
                       >
-                        {item.emoji}
-                      </div>
+                        <div
+                          className={
+                            styles.itemPreview
+                          }
+                        >
+                          {
+                            item.emoji
+                          }
+                        </div>
 
-                      <div
-                        className={
-                          styles.itemText
-                        }
-                      >
-                        <strong>
-                          {item.name}
-                        </strong>
+                        <div
+                          className={
+                            styles.itemText
+                          }
+                        >
+                          <strong>
+                            {
+                              item.name
+                            }
+                          </strong>
 
-                        <span>
-                          {equipped
-                            ? "✓ בשימוש"
-                            : "לחצי כדי ללבוש"}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
+                          <span>
+                            {equippingItemId ===
+                            item.id
+                              ? "שומר..."
+                              : equipped
+                                ? "✓ בשימוש"
+                                : "לחצי כדי ללבוש"}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  }
+                )}
               </div>
             ) : (
-              <div className={styles.empty}>
+              <div
+                className={
+                  styles.empty
+                }
+              >
                 <div>🛍️</div>
 
                 <h3>
-                  עדיין אין לך פריטים בקטגוריה הזאת
+                  עדיין אין לך
+                  פריטים בקטגוריה
+                  הזאת
                 </h3>
 
                 <p>
-                  השלימי משימות, צברי מטבעות וקני
+                  השלימי משימות,
+                  צברי מטבעות וקני
                   פריטים בחנות.
                 </p>
 
-                <button onClick={goShop}>
+                <button
+                  onClick={goShop}
+                >
                   ללכת לחנות
                 </button>
               </div>

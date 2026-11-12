@@ -7,6 +7,7 @@ import {
   saveAvatarData,
   Task,
 } from "@/lib/avatar-storage";
+import { addTaskReward, getGameProgress } from "@/lib/game-progress";
 
 const categories = [
   { name: "לימודים", icon: "📚" },
@@ -49,23 +50,39 @@ export default function Home() {
     });
 
   const [loaded, setLoaded] = useState(false);
+  const [completingTaskId, setCompletingTaskId] =
+    useState<number | null>(null);
 
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [taskTitle, setTaskTitle] = useState("");
   const [taskCategory, setTaskCategory] = useState("לימודים");
 
   useEffect(() => {
-    const data = getAvatarData();
+    let active = true;
 
-    setTasks(data.tasks);
-    setCoins(data.coins);
-    setXp(data.xp);
-    setTotalXp(data.totalXp);
-    setCompletedTasks(data.completedTasks);
-    setOwnedItems(data.ownedItems);
-    setEquippedItems(data.equippedItems);
+    async function loadData() {
+      const data = getAvatarData();
+      const progress = await getGameProgress();
 
-    setLoaded(true);
+      if (!active) {
+        return;
+      }
+
+      setTasks(data.tasks);
+      setCoins(progress.coins);
+      setXp(progress.xp);
+      setTotalXp(progress.totalXp);
+      setCompletedTasks(progress.completedTasks);
+      setOwnedItems(data.ownedItems);
+      setEquippedItems(data.equippedItems);
+      setLoaded(true);
+    }
+
+    void loadData();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -75,23 +92,10 @@ export default function Home() {
 
     saveAvatarData({
       tasks,
-      coins,
-      xp,
-      totalXp,
-      completedTasks,
       ownedItems,
       equippedItems,
     });
-  }, [
-    tasks,
-    coins,
-    xp,
-    totalXp,
-    completedTasks,
-    ownedItems,
-    equippedItems,
-    loaded,
-  ]);
+  }, [tasks, ownedItems, equippedItems, loaded]);
 
   const currentLevel = Math.floor(totalXp / 500) + 1;
   const xpForLevel = 500;
@@ -137,28 +141,34 @@ export default function Home() {
     setShowTaskModal(false);
   }
 
-  function completeTask(task: Task) {
+  async function completeTask(task: Task) {
+    if (completingTaskId !== null) {
+      return;
+    }
+
+    setCompletingTaskId(task.id);
+
+    const updatedProgress = await addTaskReward(
+      task.reward,
+      task.xp
+    );
+
+    if (!updatedProgress) {
+      setCompletingTaskId(null);
+      return;
+    }
+
     setTasks((currentTasks) =>
       currentTasks.filter(
         (currentTask) => currentTask.id !== task.id
       )
     );
 
-    setCoins(
-      (currentCoins) => currentCoins + task.reward
-    );
-
-    setXp(
-      (currentXp) => currentXp + task.xp
-    );
-
-    setTotalXp(
-      (currentXp) => currentXp + task.xp
-    );
-
-    setCompletedTasks(
-      (current) => current + 1
-    );
+    setCoins(updatedProgress.coins);
+    setXp(updatedProgress.xp);
+    setTotalXp(updatedProgress.totalXp);
+    setCompletedTasks(updatedProgress.completedTasks);
+    setCompletingTaskId(null);
   }
 
   function goToTasks() {
@@ -171,6 +181,10 @@ export default function Home() {
 
   function goToAvatar() {
     window.location.href = "/avatar";
+  }
+
+  function goToProfile() {
+    window.location.href = "/profile";
   }
 
   const clothing = equippedItems.clothing;
@@ -217,7 +231,10 @@ export default function Home() {
             חנות
           </button>
 
-          <button className="nav-item">
+          <button
+            className="nav-item"
+            onClick={goToProfile}
+          >
             <span>⚙️</span>
             פרופיל
           </button>
@@ -261,6 +278,7 @@ export default function Home() {
             <button
               className="profile-button"
               aria-label="פרופיל"
+              onClick={goToProfile}
             >
               א
             </button>
@@ -588,6 +606,7 @@ export default function Home() {
                     onClick={() =>
                       completeTask(task)
                     }
+                    disabled={completingTaskId !== null}
                   >
                     ✓
                   </button>
