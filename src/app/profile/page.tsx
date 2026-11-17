@@ -1,111 +1,19 @@
+
 "use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { getGameData, defaultEquippedItems } from "@/lib/game-data";
+import type { EquippedItems } from "@/lib/game-data";
 import styles from "./profile.module.css";
-import { getGameProgress } from "@/lib/game-progress";
-
-type Task = {
-  id?: string | number;
-  title?: string;
-  text?: string;
-  category?: string;
-  completed?: boolean;
-  isCompleted?: boolean;
-};
-
-type EquippedItems = {
-  clothing?: string | null;
-  shoes?: string | null;
-  accessory?: string | null;
-  hair?: string | null;
-  special?: string | null;
-};
-
-type Profile = {
-  id: string;
-  name: string | null;
-  nickname: string | null;
-};
-
-const STORAGE_KEYS = {
-  tasks: "tasks",
-  coins: "coins",
-  xp: "xp",
-  totalXp: "totalXp",
-  completedTasks: "completedTasks",
-  ownedItems: "ownedItems",
-  equippedItems: "equippedItems",
-  profile: "avatarProfile",
-};
-
-function readNumber(key: string, fallback = 0) {
-  if (typeof window === "undefined") return fallback;
-
-  const raw = localStorage.getItem(key);
-
-  if (!raw) return fallback;
-
-  try {
-    const parsed = JSON.parse(raw);
-
-    if (typeof parsed === "number") {
-      return parsed;
-    }
-  } catch {
-    // הערך אולי נשמר כמחרוזת רגילה
-  }
-
-  const number = Number(raw);
-
-  return Number.isFinite(number) ? number : fallback;
-}
-
-function readArray<T>(key: string): T[] {
-  if (typeof window === "undefined") return [];
-
-  const raw = localStorage.getItem(key);
-
-  if (!raw) return [];
-
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function readObject<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-
-  const raw = localStorage.getItem(key);
-
-  if (!raw) return fallback;
-
-  try {
-    const parsed = JSON.parse(raw);
-
-    if (parsed && typeof parsed === "object") {
-      return parsed as T;
-    }
-
-    return fallback;
-  } catch {
-    return fallback;
-  }
-}
 
 export default function ProfilePage() {
   const router = useRouter();
-
   const supabase = useMemo(() => createClient(), []);
 
   const [loaded, setLoaded] = useState(false);
-  const [profileLoading, setProfileLoading] = useState(true);
-
   const [userId, setUserId] = useState<string | null>(null);
   const [email, setEmail] = useState("");
 
@@ -116,106 +24,73 @@ export default function ProfilePage() {
   const [xp, setXp] = useState(0);
   const [totalXp, setTotalXp] = useState(0);
   const [completedTasks, setCompletedTasks] = useState(0);
-
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [ownedItems, setOwnedItems] = useState<unknown[]>([]);
-
-  const [equippedItems, setEquippedItems] = useState<EquippedItems>({
-    clothing: null,
-    shoes: null,
-    accessory: null,
-    hair: null,
-    special: null,
-  });
+  const [ownedItems, setOwnedItems] = useState<string[]>([]);
+  const [equippedItems, setEquippedItems] =
+    useState<EquippedItems>({ ...defaultEquippedItems });
 
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState("");
   const [draftNickname, setDraftNickname] = useState("");
-
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
+    let active = true;
+
     async function loadProfile() {
-      const savedTasks = readArray<Task>(STORAGE_KEYS.tasks);
-      const savedOwnedItems = readArray<unknown>(STORAGE_KEYS.ownedItems);
+      try {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
 
-      const savedEquippedItems = readObject<EquippedItems>(
-        STORAGE_KEYS.equippedItems,
-        {
-          clothing: null,
-          shoes: null,
-          accessory: null,
-          hair: null,
-          special: null,
+        if (!active) return;
+
+        if (userError || !user) {
+          router.replace("/login");
+          return;
         }
-      );
 
-      const progress = await getGameProgress();
+        const data = await getGameData();
 
-      setCoins(progress.coins);
-      setXp(progress.xp);
-      setTotalXp(progress.totalXp);
-      setCompletedTasks(progress.completedTasks);
+        if (!active) return;
 
-      setTasks(savedTasks);
-      setOwnedItems(savedOwnedItems);
-      setEquippedItems(savedEquippedItems);
+        if (!data) {
+          setLoadError("לא הצלחנו לטעון את הפרופיל.");
+          return;
+        }
 
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError || !user) {
-        setLoaded(true);
-        setProfileLoading(false);
-        router.push("/login");
-        return;
-      }
-
-      setUserId(user.id);
-      setEmail(user.email ?? "");
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, name, nickname")
-        .eq("id", user.id)
-        .single<Profile>();
-
-      if (error) {
+        setUserId(user.id);
+        setEmail(user.email ?? "");
+        setName(data.name);
+        setNickname(data.nickname);
+        setCoins(data.coins);
+        setXp(data.xp);
+        setTotalXp(data.totalXp);
+        setCompletedTasks(data.completedTasks);
+        setOwnedItems(data.ownedItems);
+        setEquippedItems(data.equippedItems);
+      } catch (error) {
         console.error("Error loading profile:", error);
-
-        const fallbackName =
-          typeof user.user_metadata?.name === "string"
-            ? user.user_metadata.name
-            : "האווטאר שלי";
-
-        setName(fallbackName);
-        setNickname("שחקן מתחיל");
-      } else if (data) {
-        setName(data.name || "האווטאר שלי");
-        setNickname(data.nickname || "שחקן מתחיל");
+        if (active) {
+          setLoadError("אירעה שגיאה בטעינת הפרופיל.");
+        }
+      } finally {
+        if (active) setLoaded(true);
       }
-
-      setProfileLoading(false);
-      setLoaded(true);
     }
 
     void loadProfile();
+
+    return () => {
+      active = false;
+    };
   }, [router, supabase]);
 
-  const completedFromTasks = useMemo(() => {
-    return tasks.filter((task) => task.completed || task.isCompleted).length;
-  }, [tasks]);
-
-  const actualCompletedTasks = Math.max(
-    completedTasks,
-    completedFromTasks
-  );
+  const actualCompletedTasks = completedTasks;
 
   const level = Math.max(1, Math.floor(totalXp / 250) + 1);
-
   const xpInsideLevel = totalXp % 250;
   const xpNeededForLevel = 250;
 
@@ -224,23 +99,12 @@ export default function ProfilePage() {
     Math.round((xpInsideLevel / xpNeededForLevel) * 100)
   );
 
-  const categoryStats = useMemo(() => {
-    const counts: Record<string, number> = {};
+  // היסטוריית משימות לפי קטגוריה עדיין אינה נשמרת בענן.
+  // לכן לא נחשב התפלגות היסטורית מנתונים מקומיים ישנים.
+  const categoryStats: [string, number][] = [];
 
-    tasks.forEach((task) => {
-      if (!task.completed && !task.isCompleted) return;
-
-      const category = task.category || "אחר";
-
-      counts[category] = (counts[category] || 0) + 1;
-    });
-
-    return Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5);
-  }, [tasks]);
-
-  const equippedCount = Object.values(equippedItems).filter(Boolean).length;
+  const equippedCount =
+    Object.values(equippedItems).filter(Boolean).length;
 
   const achievements = useMemo(() => {
     return [
@@ -298,7 +162,7 @@ export default function ProfilePage() {
   }
 
   async function saveProfile() {
-    if (!userId) return;
+    if (!userId || saving) return;
 
     const cleanName = draftName.trim() || "האווטאר שלי";
     const cleanNickname =
@@ -307,47 +171,47 @@ export default function ProfilePage() {
     setSaving(true);
     setSaveError("");
 
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        name: cleanName,
-        nickname: cleanNickname,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", userId);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          name: cleanName,
+          nickname: cleanNickname,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", userId);
 
-    if (error) {
+      if (error) {
+        throw error;
+      }
+
+      setName(cleanName);
+      setNickname(cleanNickname);
+      setEditing(false);
+    } catch (error) {
       console.error("Error saving profile:", error);
       setSaveError("לא הצלחנו לשמור את הפרופיל. נסי שוב.");
+    } finally {
       setSaving(false);
-      return;
     }
-
-    setName(cleanName);
-    setNickname(cleanNickname);
-
-    localStorage.setItem(
-      STORAGE_KEYS.profile,
-      JSON.stringify({
-        name: cleanName,
-        nickname: cleanNickname,
-      })
-    );
-
-    setSaving(false);
-    setEditing(false);
   }
 
   async function handleLogout() {
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
 
-    router.push("/login");
+    if (error) {
+      console.error("Error signing out:", error);
+      setSaveError("לא הצלחנו להתנתק. נסי שוב.");
+      return;
+    }
+
+    router.replace("/login");
     router.refresh();
   }
 
-  if (!loaded || profileLoading) {
+  if (!loaded) {
     return (
-      <main className={styles.loadingPage}>
+      <main className={styles.loadingPage} dir="rtl">
         <div className={styles.loadingCard}>
           <div className={styles.loadingAvatar}>🙂</div>
           <p>טוען את הפרופיל...</p>
@@ -356,13 +220,29 @@ export default function ProfilePage() {
     );
   }
 
+  if (loadError) {
+    return (
+      <main className={styles.loadingPage} dir="rtl">
+        <div className={styles.loadingCard}>
+          <div className={styles.loadingAvatar}>⚠️</div>
+          <p>{loadError}</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+          >
+            נסי שוב
+          </button>
+        </div>
+      </main>
+    );
+  }
+
   return (
-    <main className={styles.page}>
+    <main className={styles.page} dir="rtl">
       <aside className={styles.sidebar}>
         <div>
           <Link href="/" className={styles.logo}>
             <span className={styles.logoIcon}>A</span>
-
             <div>
               <strong>Avatar</strong>
               <small>המשחק של החיים שלך</small>
@@ -402,7 +282,6 @@ export default function ProfilePage() {
 
         <div className={styles.sidebarWallet}>
           <span className={styles.walletLabel}>הארנק שלי</span>
-
           <div className={styles.walletAmount}>
             <span>🪙</span>
             <strong>{coins.toLocaleString("he-IL")}</strong>
@@ -416,7 +295,8 @@ export default function ProfilePage() {
             <span className={styles.eyebrow}>הפרופיל שלי</span>
             <h1>היי, {name} 👋</h1>
             <p>
-              כאן אפשר לראות כמה התקדמת במשימות, במשחק ובבניית הדמות שלך.
+              כאן אפשר לראות כמה התקדמת במשימות, במשחק
+              ובבניית הדמות שלך.
             </p>
           </div>
 
@@ -455,7 +335,10 @@ export default function ProfilePage() {
               )}
             </div>
 
-            <Link href="/avatar" className={styles.secondaryButton}>
+            <Link
+              href="/avatar"
+              className={styles.secondaryButton}
+            >
               לחדר ההלבשה
             </Link>
           </div>
@@ -600,14 +483,14 @@ export default function ProfilePage() {
               </div>
 
               <p>
-                עוד {xpNeededForLevel - xpInsideLevel} XP עד לרמה הבאה
+                עוד {xpNeededForLevel - xpInsideLevel} XP
+                עד לרמה הבאה
               </p>
             </div>
 
             <div className={styles.quickLinks}>
               <Link href="/tasks">
                 <span>✅</span>
-
                 <div>
                   <strong>המשימות שלי</strong>
                   <small>להמשיך לצבור XP</small>
@@ -616,7 +499,6 @@ export default function ProfilePage() {
 
               <Link href="/shop">
                 <span>🛍️</span>
-
                 <div>
                   <strong>לחנות</strong>
                   <small>לקנות דברים חדשים</small>
@@ -625,7 +507,6 @@ export default function ProfilePage() {
 
               <Link href="/avatar">
                 <span>✨</span>
-
                 <div>
                   <strong>לעצב את הדמות</strong>
                   <small>
@@ -640,7 +521,6 @@ export default function ProfilePage() {
         <section className={styles.statsGrid}>
           <article className={styles.statCard}>
             <span className={styles.statIcon}>🪙</span>
-
             <div>
               <span>Coins</span>
               <strong>{coins.toLocaleString("he-IL")}</strong>
@@ -649,7 +529,6 @@ export default function ProfilePage() {
 
           <article className={styles.statCard}>
             <span className={styles.statIcon}>⚡</span>
-
             <div>
               <span>XP נוכחי</span>
               <strong>{xp.toLocaleString("he-IL")}</strong>
@@ -658,7 +537,6 @@ export default function ProfilePage() {
 
           <article className={styles.statCard}>
             <span className={styles.statIcon}>🚀</span>
-
             <div>
               <span>סה״כ XP</span>
               <strong>{totalXp.toLocaleString("he-IL")}</strong>
@@ -667,7 +545,6 @@ export default function ProfilePage() {
 
           <article className={styles.statCard}>
             <span className={styles.statIcon}>✅</span>
-
             <div>
               <span>משימות שהושלמו</span>
               <strong>{actualCompletedTasks}</strong>
@@ -676,7 +553,6 @@ export default function ProfilePage() {
 
           <article className={styles.statCard}>
             <span className={styles.statIcon}>🎒</span>
-
             <div>
               <span>פריטים בבעלותך</span>
               <strong>{ownedItems.length}</strong>
@@ -685,7 +561,6 @@ export default function ProfilePage() {
 
           <article className={styles.statCard}>
             <span className={styles.statIcon}>🏅</span>
-
             <div>
               <span>הישגים שנפתחו</span>
               <strong>
@@ -749,15 +624,15 @@ export default function ProfilePage() {
             ) : (
               <div className={styles.emptyState}>
                 <span>🎯</span>
-                <h4>המסע שלך רק מתחיל</h4>
+                <h4>ההתקדמות שלך נשמרת!</h4>
 
                 <p>
-                  אחרי שתשלים משימות, כאן תראה באילו תחומים אתה
-                  הכי פעיל.
+                  השלמת עד עכשיו {completedTasks} משימות.
+                  פירוט ההתקדמות לפי קטגוריות יתווסף בהמשך.
                 </p>
 
                 <Link href="/tasks">
-                  קדימה למשימה הראשונה
+                  להמשך המשימות
                 </Link>
               </div>
             )}
@@ -766,7 +641,9 @@ export default function ProfilePage() {
           <article className={styles.panel}>
             <div className={styles.panelHeader}>
               <div>
-                <span className={styles.panelEyebrow}>אוסף</span>
+                <span className={styles.panelEyebrow}>
+                  אוסף
+                </span>
                 <h3>הישגים</h3>
               </div>
 
@@ -817,8 +694,8 @@ export default function ProfilePage() {
             <h3>🏡 הבית שלך בעולם של Avatar</h3>
 
             <p>
-              ככל שתתקדם במשחק, תוכל לקנות בית, לפתוח חדרים,
-              לרכוש רהיטים ולעצב עולם משלך.
+              ככל שתתקדם במשחק, תוכל לקנות בית,
+              לפתוח חדרים, לרכוש רהיטים ולעצב עולם משלך.
             </p>
           </div>
 

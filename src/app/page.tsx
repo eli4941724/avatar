@@ -1,13 +1,14 @@
+
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
 import {
-  EquippedItems,
-  getAvatarData,
-  saveAvatarData,
-  Task,
-} from "@/lib/avatar-storage";
-import { addTaskReward, getGameProgress } from "@/lib/game-progress";
+  completeTask as completeTaskInCloud,
+  createTask as createTaskInCloud,
+  defaultEquippedItems,
+  getGameData,
+} from "@/lib/game-data";
+import type { EquippedItems, Task } from "@/lib/game-data";
 
 const categories = [
   { name: "לימודים", icon: "📚" },
@@ -20,15 +21,8 @@ const categories = [
 
 function calculateReward(title: string) {
   const length = title.trim().length;
-
-  if (length > 35) {
-    return { coins: 100, xp: 70 };
-  }
-
-  if (length > 20) {
-    return { coins: 70, xp: 50 };
-  }
-
+  if (length > 35) return { coins: 100, xp: 70 };
+  if (length > 20) return { coins: 70, xp: 50 };
   return { coins: 40, xp: 30 };
 }
 
@@ -38,21 +32,13 @@ export default function Home() {
   const [xp, setXp] = useState(0);
   const [totalXp, setTotalXp] = useState(0);
   const [completedTasks, setCompletedTasks] = useState(0);
-  const [ownedItems, setOwnedItems] = useState<string[]>([]);
-
+  const [name, setName] = useState("שחקן חדש");
   const [equippedItems, setEquippedItems] =
-    useState<EquippedItems>({
-      clothing: null,
-      shoes: null,
-      accessory: null,
-      hair: null,
-      special: null,
-    });
-
-  const [loaded, setLoaded] = useState(false);
+    useState<EquippedItems>({ ...defaultEquippedItems });
+  const [creatingTask, setCreatingTask] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const [completingTaskId, setCompletingTaskId] =
     useState<number | null>(null);
-
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [taskTitle, setTaskTitle] = useState("");
   const [taskCategory, setTaskCategory] = useState("לימודים");
@@ -61,114 +47,102 @@ export default function Home() {
     let active = true;
 
     async function loadData() {
-      const data = getAvatarData();
-      const progress = await getGameProgress();
+      try {
+        const data = await getGameData();
+        if (!active) return;
 
-      if (!active) {
-        return;
+        if (!data) {
+          window.location.href = "/login";
+          return;
+        }
+
+        setTasks(data.tasks);
+        setCoins(data.coins);
+        setXp(data.xp);
+        setTotalXp(data.totalXp);
+        setCompletedTasks(data.completedTasks);
+        setName(data.name);
+        setEquippedItems(data.equippedItems);
+      } catch (error) {
+        console.error("Error loading game data:", error);
+        if (active) {
+          setErrorMessage("לא הצלחנו לטעון את הנתונים. נסי לרענן.");
+        }
       }
-
-      setTasks(data.tasks);
-      setCoins(progress.coins);
-      setXp(progress.xp);
-      setTotalXp(progress.totalXp);
-      setCompletedTasks(progress.completedTasks);
-      setOwnedItems(data.ownedItems);
-      setEquippedItems(data.equippedItems);
-      setLoaded(true);
     }
 
     void loadData();
-
     return () => {
       active = false;
     };
   }, []);
 
-  useEffect(() => {
-    if (!loaded) {
-      return;
-    }
-
-    saveAvatarData({
-      tasks,
-      ownedItems,
-      equippedItems,
-    });
-  }, [tasks, ownedItems, equippedItems, loaded]);
-
   const currentLevel = Math.floor(totalXp / 500) + 1;
   const xpForLevel = 500;
   const displayedXp = xp % xpForLevel;
-
   const progressPercent = Math.min(
     (displayedXp / xpForLevel) * 100,
     100
   );
 
-  function addTask(event: FormEvent<HTMLFormElement>) {
+  async function addTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     const cleanTitle = taskTitle.trim();
+    if (!cleanTitle || creatingTask) return;
 
-    if (!cleanTitle) {
-      return;
+    setCreatingTask(true);
+    setErrorMessage("");
+
+    try {
+      const newTask = await createTaskInCloud(
+        cleanTitle,
+        taskCategory
+      );
+
+      if (!newTask) {
+        setErrorMessage("לא הצלחנו ליצור את המשימה. נסי שוב.");
+        return;
+      }
+
+      setTasks((current) => [newTask, ...current]);
+      setTaskTitle("");
+      setTaskCategory("לימודים");
+      setShowTaskModal(false);
+    } catch (error) {
+      console.error("Error creating task:", error);
+      setErrorMessage("לא הצלחנו ליצור את המשימה. נסי שוב.");
+    } finally {
+      setCreatingTask(false);
     }
-
-    const selectedCategory =
-      categories.find(
-        (category) => category.name === taskCategory
-      ) ?? categories[0];
-
-    const reward = calculateReward(cleanTitle);
-
-    const newTask: Task = {
-      id: Date.now(),
-      title: cleanTitle,
-      category: taskCategory,
-      reward: reward.coins,
-      xp: reward.xp,
-      icon: selectedCategory.icon,
-    };
-
-    setTasks((currentTasks) => [
-      newTask,
-      ...currentTasks,
-    ]);
-
-    setTaskTitle("");
-    setTaskCategory("לימודים");
-    setShowTaskModal(false);
   }
 
   async function completeTask(task: Task) {
-    if (completingTaskId !== null) {
-      return;
-    }
+    if (completingTaskId !== null) return;
 
     setCompletingTaskId(task.id);
+    setErrorMessage("");
 
-    const updatedProgress = await addTaskReward(
-      task.reward,
-      task.xp
-    );
+    try {
+      const progress = await completeTaskInCloud(task.id);
 
-    if (!updatedProgress) {
+      if (!progress) {
+        setErrorMessage("לא הצלחנו להשלים את המשימה. נסי שוב.");
+        return;
+      }
+
+      setTasks((current) =>
+        current.filter((item) => item.id !== task.id)
+      );
+      setCoins(progress.coins);
+      setXp(progress.xp);
+      setTotalXp(progress.totalXp);
+      setCompletedTasks(progress.completedTasks);
+    } catch (error) {
+      console.error("Error completing task:", error);
+      setErrorMessage("לא הצלחנו להשלים את המשימה. נסי שוב.");
+    } finally {
       setCompletingTaskId(null);
-      return;
     }
-
-    setTasks((currentTasks) =>
-      currentTasks.filter(
-        (currentTask) => currentTask.id !== task.id
-      )
-    );
-
-    setCoins(updatedProgress.coins);
-    setXp(updatedProgress.xp);
-    setTotalXp(updatedProgress.totalXp);
-    setCompletedTasks(updatedProgress.completedTasks);
-    setCompletingTaskId(null);
   }
 
   function goToTasks() {
@@ -206,45 +180,26 @@ export default function Home() {
             <span>🏠</span>
             בית
           </button>
-
-          <button
-            className="nav-item"
-            onClick={goToTasks}
-          >
+          <button className="nav-item" onClick={goToTasks}>
             <span>✅</span>
             משימות
           </button>
-
-          <button
-            className="nav-item"
-            onClick={goToAvatar}
-          >
+          <button className="nav-item" onClick={goToAvatar}>
             <span>👤</span>
             הדמות שלי
           </button>
-
-          <button
-            className="nav-item"
-            onClick={goToShop}
-          >
+          <button className="nav-item" onClick={goToShop}>
             <span>🛍️</span>
             חנות
           </button>
-
-          <button
-            className="nav-item"
-            onClick={goToProfile}
-          >
+          <button className="nav-item" onClick={goToProfile}>
             <span>⚙️</span>
             פרופיל
           </button>
         </nav>
 
         <div className="sidebar-card">
-          <div className="sidebar-card-icon">
-            🔥
-          </div>
-
+          <div className="sidebar-card-icon">🔥</div>
           <div>
             <strong>רצף של 7 ימים!</strong>
             <p>ממשיכים ככה.</p>
@@ -255,12 +210,8 @@ export default function Home() {
       <section className="content">
         <header className="topbar">
           <div>
-            <p className="eyebrow">
-              היום
-            </p>
-
-            <h1>היי, אלכס 👋</h1>
-
+            <p className="eyebrow">היום</p>
+            <h1>היי, {name} 👋</h1>
             <p className="subtitle">
               מסיימים משימות, צוברים נקודות ובונים עולם משלך.
             </p>
@@ -269,18 +220,14 @@ export default function Home() {
           <div className="top-actions">
             <div className="coin-pill">
               <span>🪙</span>
-
-              <strong>
-                {coins.toLocaleString("he-IL")}
-              </strong>
+              <strong>{coins.toLocaleString("he-IL")}</strong>
             </div>
-
             <button
               className="profile-button"
               aria-label="פרופיל"
               onClick={goToProfile}
             >
-              א
+              {name.charAt(0)}
             </button>
           </div>
         </header>
@@ -289,15 +236,9 @@ export default function Home() {
           <section className="avatar-card">
             <div className="avatar-card-top">
               <div>
-                <p className="eyebrow light">
-                  הדמות שלך
-                </p>
-
-                <h2>
-                  שלב {currentLevel}
-                </h2>
+                <p className="eyebrow light">הדמות שלך</p>
+                <h2>שלב {currentLevel}</h2>
               </div>
-
               <button
                 className="small-button"
                 onClick={goToAvatar}
@@ -426,42 +367,25 @@ export default function Home() {
                       style={{
                         position: "absolute",
                         width: "48px",
-                        height:
-                          shoes === "boots"
-                            ? "35px"
-                            : "22px",
+                        height: shoes === "boots" ? "35px" : "22px",
                         left: "23px",
-                        top:
-                          shoes === "boots"
-                            ? "245px"
-                            : "262px",
+                        top: shoes === "boots" ? "245px" : "262px",
                         borderRadius: "10px",
                         background:
-                          shoes === "boots"
-                            ? "#4d3a2c"
-                            : "#7656ff",
+                          shoes === "boots" ? "#4d3a2c" : "#7656ff",
                         zIndex: 10,
                       }}
                     />
-
                     <div
                       style={{
                         position: "absolute",
                         width: "48px",
-                        height:
-                          shoes === "boots"
-                            ? "35px"
-                            : "22px",
+                        height: shoes === "boots" ? "35px" : "22px",
                         right: "23px",
-                        top:
-                          shoes === "boots"
-                            ? "245px"
-                            : "262px",
+                        top: shoes === "boots" ? "245px" : "262px",
                         borderRadius: "10px",
                         background:
-                          shoes === "boots"
-                            ? "#4d3a2c"
-                            : "#7656ff",
+                          shoes === "boots" ? "#4d3a2c" : "#7656ff",
                         zIndex: 10,
                       }}
                     />
@@ -486,10 +410,7 @@ export default function Home() {
 
             <div className="level-box">
               <div className="level-row">
-                <span>
-                  התקדמות לשלב הבא
-                </span>
-
+                <span>התקדמות לשלב הבא</span>
                 <strong>
                   {displayedXp} / {xpForLevel} XP
                 </strong>
@@ -498,95 +419,66 @@ export default function Home() {
               <div className="progress-track">
                 <div
                   className="progress-fill"
-                  style={{
-                    width: `${progressPercent}%`,
-                  }}
+                  style={{ width: `${progressPercent}%` }}
                 />
               </div>
 
               <p>
-                עוד{" "}
-                {Math.max(
-                  xpForLevel - displayedXp,
-                  0
-                )}{" "}
-                XP לשלב הבא
+                עוד {Math.max(xpForLevel - displayedXp, 0)} XP
+                לשלב הבא
               </p>
             </div>
           </section>
 
           <section className="stats-column">
             <div className="stat-card coins">
-              <div className="stat-icon">
-                🪙
-              </div>
-
+              <div className="stat-icon">🪙</div>
               <div>
                 <span>מטבעות</span>
-
-                <strong>
-                  {coins.toLocaleString("he-IL")}
-                </strong>
-
+                <strong>{coins.toLocaleString("he-IL")}</strong>
                 <p>לקניות בחנות</p>
               </div>
             </div>
 
             <div className="stat-card xp">
-              <div className="stat-icon">
-                ⚡
-              </div>
-
+              <div className="stat-icon">⚡</div>
               <div>
                 <span>סה״כ XP</span>
-
-                <strong>
-                  {totalXp.toLocaleString(
-                    "he-IL"
-                  )}
-                </strong>
-
-                <p>
-                  שלב {currentLevel}
-                </p>
+                <strong>{totalXp.toLocaleString("he-IL")}</strong>
+                <p>שלב {currentLevel}</p>
               </div>
             </div>
 
             <div className="stat-card tasks">
-              <div className="stat-icon">
-                ✅
-              </div>
-
+              <div className="stat-icon">✅</div>
               <div>
                 <span>הושלמו</span>
-
-                <strong>
-                  {completedTasks}
-                </strong>
-
+                <strong>{completedTasks}</strong>
                 <p>משימות</p>
               </div>
             </div>
           </section>
         </div>
 
+        {errorMessage && (
+          <p
+            role="alert"
+            style={{ color: "#b91c1c", margin: "12px 0" }}
+          >
+            {errorMessage}
+          </p>
+        )}
+
         <section className="tasks-section">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">
-                המשימות להיום
-              </p>
-
-              <h2>
-                המשימות שלך
-              </h2>
+              <p className="eyebrow">המשימות להיום</p>
+              <h2>המשימות שלך</h2>
             </div>
 
             <button
               className="add-task-button"
-              onClick={() =>
-                setShowTaskModal(true)
-              }
+              onClick={() => setShowTaskModal(true)}
             >
               <span>＋</span>
               משימה חדשה
@@ -596,30 +488,20 @@ export default function Home() {
           {tasks.length > 0 ? (
             <div className="task-list">
               {tasks.slice(0, 3).map((task) => (
-                <article
-                  className="task-card"
-                  key={task.id}
-                >
+                <article className="task-card" key={task.id}>
                   <button
                     className="task-check"
                     aria-label={`סיום המשימה ${task.title}`}
-                    onClick={() =>
-                      completeTask(task)
-                    }
+                    onClick={() => completeTask(task)}
                     disabled={completingTaskId !== null}
                   >
                     ✓
                   </button>
 
-                  <div className="task-icon">
-                    {task.icon}
-                  </div>
+                  <div className="task-icon">{task.icon}</div>
 
                   <div className="task-info">
-                    <h3>
-                      {task.title}
-                    </h3>
-
+                    <h3>{task.title}</h3>
                     <p>
                       {task.category} · +{task.xp} XP
                     </p>
@@ -644,23 +526,14 @@ export default function Home() {
             </div>
           ) : (
             <div className="empty-tasks">
-              <div className="empty-icon">
-                🎉
-              </div>
-
-              <h3>
-                סיימת את כל המשימות!
-              </h3>
-
+              <div className="empty-icon">🎉</div>
+              <h3>סיימת את כל המשימות!</h3>
               <p>
                 אפשר להוסיף משימה חדשה או פשוט ליהנות מההישג.
               </p>
-
               <button
                 className="add-task-button"
-                onClick={() =>
-                  setShowTaskModal(true)
-                }
+                onClick={() => setShowTaskModal(true)}
               >
                 ＋ משימה חדשה
               </button>
@@ -670,39 +543,21 @@ export default function Home() {
 
         <section className="shop-banner">
           <div>
-            <p className="eyebrow light">
-              החנות של Avatar
-            </p>
-
-            <h2>
-              פריטים חדשים הגיעו לחנות ✨
-            </h2>
-
+            <p className="eyebrow light">החנות של Avatar</p>
+            <h2>פריטים חדשים הגיעו לחנות ✨</h2>
             <p>
               השתמשי במטבעות שלך כדי לקנות בגדים,
               אביזרים ופריטים מיוחדים.
             </p>
-
-            <button
-              className="shop-button"
-              onClick={goToShop}
-            >
+            <button className="shop-button" onClick={goToShop}>
               לכניסה לחנות
             </button>
           </div>
 
           <div className="shop-items">
-            <div className="floating-item item-one">
-              👟
-            </div>
-
-            <div className="floating-item item-two">
-              🕶️
-            </div>
-
-            <div className="floating-item item-three">
-              🧢
-            </div>
+            <div className="floating-item item-one">👟</div>
+            <div className="floating-item item-two">🕶️</div>
+            <div className="floating-item item-three">🧢</div>
           </div>
         </section>
       </section>
@@ -710,48 +565,30 @@ export default function Home() {
       {showTaskModal && (
         <div
           className="modal-backdrop"
-          onMouseDown={() =>
-            setShowTaskModal(false)
-          }
+          onMouseDown={() => setShowTaskModal(false)}
         >
           <div
             className="task-modal"
-            onMouseDown={(event) =>
-              event.stopPropagation()
-            }
+            onMouseDown={(event) => event.stopPropagation()}
           >
             <button
               className="modal-close"
-              onClick={() =>
-                setShowTaskModal(false)
-              }
+              onClick={() => setShowTaskModal(false)}
               aria-label="סגירת החלון"
             >
               ×
             </button>
 
-            <div className="modal-icon">
-              ✨
-            </div>
-
-            <p className="eyebrow">
-              משימה חדשה
-            </p>
-
-            <h2>
-              מה המשימה שלך?
-            </h2>
-
+            <div className="modal-icon">✨</div>
+            <p className="eyebrow">משימה חדשה</p>
+            <h2>מה המשימה שלך?</h2>
             <p className="modal-description">
               כתבי מה צריך לעשות. Avatar יקבע כרגע
               תגמול בסיסי לפי גודל המשימה.
             </p>
 
             <form onSubmit={addTask}>
-              <label
-                className="form-label"
-                htmlFor="task-title"
-              >
+              <label className="form-label" htmlFor="task-title">
                 המשימה
               </label>
 
@@ -760,20 +597,13 @@ export default function Home() {
                 className="task-input"
                 type="text"
                 value={taskTitle}
-                onChange={(event) =>
-                  setTaskTitle(
-                    event.target.value
-                  )
-                }
+                onChange={(event) => setTaskTitle(event.target.value)}
                 placeholder="לדוגמה: להכין את העבודה במדעים"
                 autoFocus
                 maxLength={100}
               />
 
-              <label
-                className="form-label"
-                htmlFor="task-category"
-              >
+              <label className="form-label" htmlFor="task-category">
                 קטגוריה
               </label>
 
@@ -781,49 +611,24 @@ export default function Home() {
                 id="task-category"
                 className="task-input"
                 value={taskCategory}
-                onChange={(event) =>
-                  setTaskCategory(
-                    event.target.value
-                  )
-                }
+                onChange={(event) => setTaskCategory(event.target.value)}
               >
-                {categories.map(
-                  (category) => (
-                    <option
-                      value={category.name}
-                      key={category.name}
-                    >
-                      {category.icon}{" "}
-                      {category.name}
-                    </option>
-                  )
-                )}
+                {categories.map((category) => (
+                  <option value={category.name} key={category.name}>
+                    {category.icon} {category.name}
+                  </option>
+                ))}
               </select>
 
               {taskTitle.trim() && (
                 <div className="reward-preview">
-                  <span>
-                    התגמול המשוער
-                  </span>
-
+                  <span>התגמול המשוער</span>
                   <div>
                     <strong>
-                      🪙{" "}
-                      {
-                        calculateReward(
-                          taskTitle
-                        ).coins
-                      }
+                      🪙 {calculateReward(taskTitle).coins}
                     </strong>
-
                     <strong>
-                      ⚡{" "}
-                      {
-                        calculateReward(
-                          taskTitle
-                        ).xp
-                      }{" "}
-                      XP
+                      ⚡ {calculateReward(taskTitle).xp} XP
                     </strong>
                   </div>
                 </div>
@@ -832,9 +637,9 @@ export default function Home() {
               <button
                 className="create-task-button"
                 type="submit"
-                disabled={!taskTitle.trim()}
+                disabled={!taskTitle.trim() || creatingTask}
               >
-                ליצור משימה
+                {creatingTask ? "שומרת..." : "ליצור משימה"}
               </button>
             </form>
           </div>
