@@ -1,6 +1,12 @@
 .page {
   min-height: 100vh;
-  background: #f5f6fb;
+  background:
+    radial-gradient(
+      circle at top,
+      #f3f0ff 0%,
+      #f7f7fb 42%,
+      #f4f5fa 100%
+    );
   color: #171724;
 }
 
@@ -64,373 +70,891 @@
 }
 
 .content {
-  max-width: 1300px;
+  max-width: 1380px;
   margin: auto;
-  padding: 50px 30px 80px;
+  padding: 44px 28px 80px;
+}
+
+.successMessage,
+.errorMessage {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.successMessage {
+  background: #f1efff;
+  color: #5b44d1;
+  border: 1px solid #d8d1ff;
+}
+
+.errorMessage {
+  background: #fff4f4;
+  color: #a33c3c;
+  border: 1px solid #f0caca;
 }
 
 .heading {
-  margin-bottom: 32px;
+  margin-bottom: 28px;
 }
 
 .heading > p {
-  margin: 0 0 7px;
+  margin: 0 0 8px;
   color: #6c4cff;
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 1px;
+  text-transform: uppercase;
 }
 
 .heading h1 {
   margin: 0;
-  font-size: 38px;
+  font-size: 40px;
   letter-spacing: -1px;
 }
 
 .heading span {
   display: block;
   margin-top: 10px;
+  max-width: 780px;
   color: #77788a;
+  line-height: 1.7;
 }
 
-.mainGrid {
+.designerGrid {
   display: grid;
-  grid-template-columns: 0.9fr 1.3fr;
+  grid-template-columns: 0.92fr 1.08fr;
   gap: 24px;
+  align-items: start;
 }
 
-.avatarPanel {
-  overflow: hidden;
-  background: white;
+.previewPanel,
+.editorPanel,
+.wardrobeSection {
+  background: rgba(
+    255,
+    255,
+    255,
+    0.92
+  );
   border: 1px solid #e8e8f0;
   border-radius: 28px;
-  box-shadow: 0 10px 30px rgba(30, 30, 60, 0.05);
+  box-shadow: 0 14px 44px
+    rgba(30, 30, 60, 0.06);
+  backdrop-filter: blur(10px);
 }
 
-.avatarBackground {
+.previewHeader,
+.editorHeader,
+.wardrobeHeader {
+  padding: 24px 24px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+.previewHeader p,
+.editorHeader p,
+.wardrobeHeader p {
+  margin: 0 0 6px;
+  color: #6c4cff;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.previewHeader h2,
+.editorHeader h2,
+.wardrobeHeader h2 {
+  margin: 0;
+  font-size: 26px;
+  letter-spacing: -0.5px;
+}
+
+.previewBadge,
+.editorHint,
+.wardrobeHeader > span {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #f0edff;
+  color: #5d46d0;
+  font-size: 11px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.previewStage {
   position: relative;
-  min-height: 570px;
+  min-height: 560px;
+  margin: 18px 18px 0;
+  border-radius: 28px;
   overflow: hidden;
   background:
     radial-gradient(
-      circle at 50% 35%,
-      rgba(255, 255, 255, 0.8),
-      transparent 30%
+      circle at 50% 26%,
+      rgba(255, 255, 255, 0.9),
+      transparent 24%
     ),
     linear-gradient(
-      145deg,
-      #eeeaff,
-      #dcd4ff
+      180deg,
+      #efeaff 0%,
+      #ddd4ff 55%,
+      #d6cdfc 100%
     );
+}
+
+.previewGlow {
+  position: absolute;
+  width: 330px;
+  height: 330px;
+  left: 50%;
+  top: 62px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: rgba(
+    255,
+    255,
+    255,
+    0.5
+  );
+  filter: blur(10px);
 }
 
 .character {
   position: absolute;
-  width: 230px;
-  height: 450px;
   left: 50%;
-  bottom: 50px;
+  bottom: 52px;
+  width: 250px;
+  height: 460px;
   transform: translateX(-50%);
+  z-index: 4;
+}
+
+.girl {
+  --shoulder-width: 156px;
+  --body-height: 156px;
+}
+
+.boy {
+  --shoulder-width: 170px;
+  --body-height: 164px;
+}
+
+.face {
+  position: absolute;
+  left: 50%;
+  top: 64px;
+  transform: translateX(-50%);
+  width: 146px;
+  height: 164px;
+  background:
+    radial-gradient(
+      circle at 35% 30%,
+      rgba(255, 255, 255, 0.22),
+      transparent 38%
+    ),
+    linear-gradient(
+      180deg,
+      #f9e5d8 0%,
+      var(--avatar-skin) 100%
+    );
+  box-shadow:
+    inset 0 -10px 20px
+      rgba(120, 70, 40, 0.08),
+    0 10px 22px
+      rgba(74, 53, 95, 0.08);
   z-index: 5;
 }
 
-.head {
+.faceSoft {
+  border-radius: 45% 45% 42% 42% /
+    42% 42% 50% 50%;
+}
+
+.faceRound {
+  border-radius: 50%;
+}
+
+.faceHeart {
+  border-radius: 44% 44% 48% 48% /
+    36% 36% 58% 58%;
+}
+
+.faceGlow {
   position: absolute;
-  width: 145px;
-  height: 150px;
   left: 50%;
-  top: 56px;
+  bottom: 18px;
   transform: translateX(-50%);
-  border-radius: 48% 48% 44% 44%;
-  background: #f4c7a2;
-  z-index: 6;
+  width: 80px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(
+    255,
+    255,
+    255,
+    0.18
+  );
+  filter: blur(10px);
 }
 
 .hair {
   position: absolute;
-  width: 152px;
-  height: 82px;
   left: 50%;
-  top: 39px;
+  top: 28px;
   transform: translateX(-50%);
-  border-radius: 80px 80px 30px 30px;
-  background: #2d2330;
-  z-index: 8;
+  width: 164px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.22),
+      transparent 28%
+    ),
+    var(--avatar-hair);
+  box-shadow:
+    inset -10px -10px 20px
+      rgba(0, 0, 0, 0.12),
+    0 8px 18px
+      rgba(35, 25, 35, 0.18);
+  z-index: 7;
 }
 
-.hair::after {
+.hairShine {
+  position: absolute;
+  top: 10px;
+  left: 18px;
+  width: 40px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(
+    255,
+    255,
+    255,
+    0.18
+  );
+  filter: blur(5px);
+}
+
+.hairShort {
+  height: 92px;
+  border-radius: 80px 80px 34px 34px;
+}
+
+.hairShort::after {
   content: "";
   position: absolute;
-  right: 3px;
-  top: 35px;
-  width: 38px;
-  height: 62px;
+  right: 16px;
+  top: 34px;
+  width: 28px;
+  height: 46px;
   border-radius: 50%;
   background: inherit;
 }
 
-.pinkHair {
-  background: #ec73b4;
+.hairBob {
+  height: 118px;
+  border-radius: 82px 82px 38px 38px;
 }
 
-.coolHair {
-  height: 67px;
-  background: #171724;
-  transform:
-    translateX(-50%)
-    rotate(-2deg);
-}
-
-.eyeLeft,
-.eyeRight {
+.hairBob::before,
+.hairBob::after {
+  content: "";
   position: absolute;
-  top: 72px;
+  top: 52px;
+  width: 34px;
+  height: 66px;
+  border-radius: 0 0 24px 24px;
+  background: inherit;
+}
+
+.hairBob::before {
+  left: 2px;
+}
+
+.hairBob::after {
+  right: 2px;
+}
+
+.hairLong {
+  height: 146px;
+  border-radius: 86px 86px 40px 40px;
+}
+
+.hairLong::before,
+.hairLong::after {
+  content: "";
+  position: absolute;
+  top: 54px;
+  width: 38px;
+  height: 96px;
+  border-radius: 0 0 30px 30px;
+  background: inherit;
+}
+
+.hairLong::before {
+  left: 2px;
+}
+
+.hairLong::after {
+  right: 2px;
+}
+
+.hairPonytail {
+  height: 112px;
+  border-radius: 86px 86px 34px 34px;
+}
+
+.ponytail {
+  position: absolute;
+  left: 50%;
+  top: 76px;
+  transform: translateX(36px);
+  width: 32px;
+  height: 74px;
+  border-radius: 24px;
+  background: var(--avatar-hair);
+  box-shadow:
+    inset -6px -8px 14px
+      rgba(0, 0, 0, 0.12);
+}
+
+.eyebrowsRow {
+  position: absolute;
+  top: 54px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 84px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.eyebrow {
+  width: 26px;
+  height: 7px;
+  background: rgba(
+    55,
+    38,
+    29,
+    0.82
+  );
+}
+
+.eyebrowSoft {
+  border-radius: 10px 10px 4px 4px;
+  transform: rotate(-8deg);
+}
+
+.eyebrowSoft:last-child {
+  transform: rotate(8deg);
+}
+
+.eyebrowArched {
+  border-radius: 12px 12px 2px 2px;
+  transform: rotate(-12deg)
+    skewX(-14deg);
+}
+
+.eyebrowArched:last-child {
+  transform: rotate(12deg)
+    skewX(14deg);
+}
+
+.eyebrowStraight {
+  border-radius: 999px;
+}
+
+.eyesRow {
+  position: absolute;
+  top: 78px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 84px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.eye {
+  position: relative;
+  width: 22px;
+  background: white;
+  box-shadow:
+    inset 0 -3px 0
+      rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.eyeRound {
+  height: 18px;
+  border-radius: 50%;
+}
+
+.eyeAlmond {
+  height: 16px;
+  border-radius: 50% 50% 46% 46% /
+    60% 60% 40% 40%;
+  transform: rotate(-4deg);
+}
+
+.eyeAlmond:last-child {
+  transform: rotate(4deg);
+}
+
+.eyeSmile {
+  height: 10px;
+  background: transparent;
+  border-bottom: 3px solid
+    #493741;
+  border-radius: 50%;
+}
+
+.pupil {
+  position: absolute;
+  left: 50%;
+  top: 50%;
   width: 10px;
-  height: 13px;
+  height: 10px;
+  transform: translate(-50%, -50%);
   border-radius: 50%;
-  background: #292530;
+  background:
+    radial-gradient(
+      circle at 35% 35%,
+      rgba(255, 255, 255, 0.95),
+      rgba(255, 255, 255, 0.15) 26%,
+      transparent 27%
+    ),
+    var(--avatar-eye);
+  box-shadow: inset 0 0 0 2px
+    rgba(0, 0, 0, 0.12);
 }
 
-.eyeLeft {
-  left: 38px;
-}
-
-.eyeRight {
-  right: 38px;
-}
-
-.smile {
+.nose {
   position: absolute;
-  width: 35px;
-  height: 15px;
   left: 50%;
-  bottom: 27px;
+  top: 98px;
   transform: translateX(-50%);
-  border-bottom: 4px solid #a45c58;
+  width: 10px;
+  height: 18px;
+  border-right: 2px solid
+    rgba(120, 88, 67, 0.22);
+  border-bottom: 2px solid
+    rgba(120, 88, 67, 0.16);
+  border-radius: 0 0 12px 0;
+}
+
+.freckles {
+  position: absolute;
+  left: 50%;
+  top: 106px;
+  transform: translateX(-50%);
+  width: 88px;
+  display: grid;
+  grid-template-columns: repeat(
+    3,
+    1fr
+  );
+  gap: 4px 10px;
+}
+
+.freckles span {
+  width: 4px;
+  height: 4px;
+  justify-self: center;
   border-radius: 50%;
+  background: rgba(
+    143,
+    91,
+    61,
+    0.45
+  );
 }
 
-.body {
+.lips {
   position: absolute;
-  width: 155px;
-  height: 150px;
-  top: 193px;
   left: 50%;
+  top: 128px;
   transform: translateX(-50%);
-  border-radius: 34px 34px 23px 23px;
-  background: #2b2b38;
-  z-index: 4;
-}
-
-.purpleHoodie {
   background:
     linear-gradient(
-      90deg,
-      #6244e8,
-      #8268ff
-    );
+      180deg,
+      rgba(255, 255, 255, 0.18),
+      transparent 35%
+    ),
+    var(--avatar-lip);
+  box-shadow:
+    inset 0 1px 0
+      rgba(255, 255, 255, 0.28);
 }
 
-.purpleHoodie::before {
-  content: "";
-  position: absolute;
-  width: 55px;
-  height: 25px;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
+.lipsSoft {
+  width: 28px;
+  height: 10px;
+  border-radius: 0 0 18px 18px;
+}
+
+.lipsFull {
+  width: 34px;
+  height: 12px;
+  border-radius: 0 0 18px 18px;
+}
+
+.lipsSmile {
+  width: 34px;
+  height: 12px;
+  border-bottom: 4px solid
+    var(--avatar-lip);
   border-radius: 50%;
-  border: 5px solid rgba(255,255,255,0.25);
-}
-
-.blackJacket {
-  background: #16161d;
-  border: 4px solid #30303b;
-}
-
-.blackJacket::after {
-  content: "";
-  position: absolute;
-  width: 3px;
-  height: 120px;
-  background: #777784;
-  left: 50%;
-  top: 14px;
-}
-
-.coolOutfit {
-  background:
-    linear-gradient(
-      #e9e9ef 0 55%,
-      #4c75ae 55% 100%
-    );
-}
-
-.leg {
-  position: absolute;
-  width: 57px;
-  height: 130px;
-  top: 326px;
-  background: #d9d8df;
-  z-index: 3;
-}
-
-.leftLeg {
-  left: 52px;
-  border-radius: 0 0 20px 20px;
-}
-
-.rightLeg {
-  right: 52px;
-  border-radius: 0 0 20px 20px;
-}
-
-.shoe {
-  position: absolute;
-  width: 68px;
-  height: 35px;
-  bottom: -12px;
-  z-index: 8;
-}
-
-.leftShoe {
-  left: 37px;
-}
-
-.rightShoe {
-  right: 37px;
-}
-
-.sneaker {
-  background: #7656ff;
-  border-radius: 15px 22px 8px 8px;
-  border-bottom: 7px solid white;
-}
-
-.boot {
-  height: 54px;
-  background: #4d3a2c;
-  border-radius: 9px 9px 17px 17px;
+  background: transparent;
 }
 
 .sunglasses {
   position: absolute;
   left: 50%;
-  top: 51px;
+  top: 68px;
   transform: translateX(-50%);
-  font-size: 54px;
+  font-size: 50px;
   z-index: 10;
+}
+
+.neck {
+  position: absolute;
+  width: 34px;
+  height: 28px;
+  left: 50%;
+  top: 204px;
+  transform: translateX(-50%);
+  border-radius: 0 0 14px 14px;
+  background:
+    linear-gradient(
+      180deg,
+      var(--avatar-skin),
+      rgba(0, 0, 0, 0.04)
+    );
+  z-index: 4;
+}
+
+.torso {
+  position: absolute;
+  left: 50%;
+  top: 220px;
+  transform: translateX(-50%);
+  width: var(--shoulder-width);
+  height: var(--body-height);
+  border-radius: 34px 34px 26px 26px;
+  box-shadow:
+    0 16px 30px
+      rgba(45, 34, 90, 0.08),
+    inset 0 0 0 1px
+      rgba(255, 255, 255, 0.18);
+  z-index: 3;
+}
+
+.whiteShirt {
+  background:
+    linear-gradient(
+      180deg,
+      #ffffff 0%,
+      #edf0f7 100%
+    );
+}
+
+.purpleHoodie {
+  background:
+    linear-gradient(
+      180deg,
+      #8f7cff 0%,
+      #6c4cff 100%
+    );
+}
+
+.blackJacket {
+  background:
+    linear-gradient(
+      180deg,
+      #2e2d39 0%,
+      #191922 100%
+    );
+}
+
+.coolOutfit {
+  background:
+    linear-gradient(
+      180deg,
+      #f1f3f7 0%,
+      #ebedf3 55%,
+      #7b9ac4 55%,
+      #6482af 100%
+    );
+}
+
+.shirtCenter {
+  position: absolute;
+  left: 50%;
+  top: 18px;
+  transform: translateX(-50%);
+  width: 30px;
+  height: 110px;
+  border-radius: 14px;
+  background: rgba(
+    255,
+    255,
+    255,
+    0.18
+  );
+}
+
+.arm {
+  position: absolute;
+  width: 30px;
+  height: 120px;
+  top: 234px;
+  border-radius: 18px;
+  background:
+    linear-gradient(
+      180deg,
+      var(--avatar-skin),
+      rgba(0, 0, 0, 0.06)
+    );
+  z-index: 2;
+}
+
+.leftArm {
+  left: 28px;
+  transform: rotate(8deg);
+}
+
+.rightArm {
+  right: 28px;
+  transform: rotate(-8deg);
+}
+
+.leg {
+  position: absolute;
+  width: 52px;
+  height: 122px;
+  top: 356px;
+  background:
+    linear-gradient(
+      180deg,
+      #efeef5 0%,
+      #d5d7e3 100%
+    );
+  z-index: 1;
+}
+
+.leftLeg {
+  left: 62px;
+  border-radius: 0 0 22px 20px;
+}
+
+.rightLeg {
+  right: 62px;
+  border-radius: 0 0 20px 22px;
+}
+
+.shoe {
+  position: absolute;
+  width: 64px;
+  z-index: 5;
+}
+
+.leftShoe {
+  left: 46px;
+  bottom: -12px;
+}
+
+.rightShoe {
+  right: 46px;
+  bottom: -12px;
+}
+
+.sneaker {
+  height: 30px;
+  border-radius: 18px 20px 10px 10px;
+  background:
+    linear-gradient(
+      180deg,
+      #ffffff 0%,
+      #d8dce8 100%
+    );
+  border-bottom: 7px solid #8f95a4;
+}
+
+.boot {
+  height: 50px;
+  border-radius: 12px 12px 18px 18px;
+  background:
+    linear-gradient(
+      180deg,
+      #6e573c 0%,
+      #4d3a2c 100%
+    );
 }
 
 .crown {
   position: absolute;
   left: 50%;
-  top: -10px;
+  top: -8px;
   transform: translateX(-50%);
-  font-size: 65px;
-  z-index: 20;
+  font-size: 62px;
+  z-index: 12;
 }
 
 .cap {
   position: absolute;
   left: 50%;
-  top: 0;
+  top: 12px;
   transform: translateX(-50%);
-  font-size: 72px;
-  z-index: 20;
+  font-size: 62px;
+  z-index: 12;
 }
 
 .wings {
   position: absolute;
   left: 50%;
-  top: 180px;
+  top: 156px;
   transform: translateX(-50%);
-  font-size: 250px;
+  font-size: 220px;
   z-index: 1;
-  opacity: 0.85;
+  opacity: 0.86;
 }
 
 .pet {
   position: absolute;
   bottom: 46px;
   right: 12%;
-  font-size: 75px;
-  z-index: 8;
+  font-size: 74px;
+  z-index: 7;
 }
 
 .floorShadow {
   position: absolute;
-  width: 260px;
-  height: 45px;
-  bottom: 25px;
+  width: 270px;
+  height: 42px;
+  bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
   border-radius: 50%;
-  background: rgba(64, 44, 140, 0.13);
-  filter: blur(5px);
+  background: rgba(
+    66,
+    47,
+    135,
+    0.18
+  );
+  filter: blur(8px);
 }
 
-.avatarInfo {
-  padding: 22px 25px;
+.previewFooter {
+  padding: 18px 24px 24px;
+}
+
+.previewFooter strong {
+  display: block;
+  font-size: 16px;
+}
+
+.previewFooter p {
+  margin: 6px 0 0;
+  color: #848697;
+  line-height: 1.6;
+  font-size: 13px;
+}
+
+.editorPanel {
+  padding-bottom: 24px;
+}
+
+.fieldGroup {
+  padding: 18px 24px 0;
+}
+
+.fieldLabel {
+  display: block;
+  margin-bottom: 10px;
+  color: #262638;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.optionRow {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
-.avatarInfo strong {
-  font-size: 17px;
-}
-
-.avatarInfo p {
-  margin: 5px 0 0;
-  color: #898995;
-  font-size: 12px;
-}
-
-.avatarInfo > span {
-  padding: 8px 11px;
+.optionButton,
+.activeOptionButton {
+  min-height: 42px;
   border-radius: 999px;
-  background: #eeeaff;
-  color: #5e43d4;
-  font-size: 11px;
-  font-weight: 900;
+  padding: 10px 15px;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
-.wardrobe {
-  padding: 28px;
+.optionButton {
+  border: 1px solid #e1e1ea;
   background: white;
-  border: 1px solid #e8e8f0;
-  border-radius: 28px;
-  box-shadow: 0 10px 30px rgba(30, 30, 60, 0.05);
+  color: #646476;
 }
 
-.wardrobeTitle {
+.optionButton:hover {
+  border-color: #c8bfff;
+  background: #faf9ff;
+}
+
+.activeOptionButton {
+  border: 1px solid #6c4cff;
+  background: #6c4cff;
+  color: white;
+}
+
+.actionsRow {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
+  gap: 12px;
+  padding: 24px 24px 0;
+  flex-wrap: wrap;
 }
 
-.wardrobeTitle p {
-  margin: 0 0 5px;
-  color: #6c4cff;
-  font-size: 11px;
+.primaryAction,
+.secondaryAction {
+  min-height: 48px;
+  border-radius: 16px;
+  padding: 0 18px;
+  font-size: 14px;
   font-weight: 900;
 }
 
-.wardrobeTitle h2 {
-  margin: 0;
-  font-size: 26px;
+.primaryAction {
+  border: 0;
+  background: #171724;
+  color: white;
 }
 
-.wardrobeTitle > span {
-  color: #8a8a97;
-  font-size: 12px;
+.primaryAction:disabled {
+  opacity: 0.5;
+}
+
+.secondaryAction {
+  border: 1px solid #ddddea;
+  background: white;
+  color: #585868;
+}
+
+.secondaryAction:disabled {
+  opacity: 0.5;
+}
+
+.wardrobeSection {
+  margin-top: 24px;
+  padding-bottom: 24px;
 }
 
 .categories {
   display: flex;
   gap: 8px;
-  margin: 25px 0;
+  padding: 20px 24px 0;
   overflow-x: auto;
 }
 
@@ -457,13 +981,17 @@
 
 .itemsGrid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(
+    2,
+    1fr
+  );
   gap: 12px;
+  padding: 22px 24px 0;
 }
 
 .item,
 .equippedItem {
-  min-height: 100px;
+  min-height: 102px;
   padding: 12px;
   display: flex;
   align-items: center;
@@ -520,7 +1048,7 @@
 }
 
 .empty {
-  margin-top: 25px;
+  margin: 22px 24px 0;
   padding: 60px 20px;
   text-align: center;
   border: 1px dashed #dcdce7;
@@ -554,17 +1082,13 @@
   font-weight: 900;
 }
 
-@media (max-width: 900px) {
-  .mainGrid {
+@media (max-width: 1080px) {
+  .designerGrid {
     grid-template-columns: 1fr;
-  }
-
-  .avatarBackground {
-    min-height: 520px;
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 700px) {
   .topbar {
     padding: 0 14px;
   }
@@ -578,20 +1102,39 @@
   }
 
   .heading h1 {
-    font-size: 30px;
+    font-size: 32px;
   }
 
-  .wardrobe {
-    padding: 20px;
+  .previewHeader,
+  .editorHeader,
+  .wardrobeHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .previewStage {
+    min-height: 520px;
+    margin: 18px 14px 0;
+  }
+
+  .fieldGroup {
+    padding: 18px 14px 0;
+  }
+
+  .actionsRow {
+    padding: 22px 14px 0;
+  }
+
+  .categories {
+    padding: 20px 14px 0;
   }
 
   .itemsGrid {
     grid-template-columns: 1fr;
+    padding: 22px 14px 0;
   }
 
-  .avatarInfo {
-    align-items: flex-start;
-    gap: 12px;
-    flex-direction: column;
+  .empty {
+    margin: 22px 14px 0;
   }
 }

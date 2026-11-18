@@ -17,6 +17,70 @@ export type EquippedItems = {
   special: string | null;
 };
 
+export type AvatarGender =
+  | "girl"
+  | "boy";
+
+export type AvatarFaceShape =
+  | "soft"
+  | "round"
+  | "heart";
+
+export type AvatarSkinTone =
+  | "fair"
+  | "light"
+  | "medium"
+  | "tan"
+  | "deep";
+
+export type AvatarEyeShape =
+  | "round"
+  | "almond"
+  | "smile";
+
+export type AvatarEyeColor =
+  | "brown"
+  | "hazel"
+  | "green"
+  | "blue"
+  | "gray";
+
+export type AvatarEyebrowStyle =
+  | "soft"
+  | "arched"
+  | "straight";
+
+export type AvatarLipStyle =
+  | "soft"
+  | "full"
+  | "smile";
+
+export type AvatarHairStyle =
+  | "short"
+  | "bob"
+  | "long"
+  | "ponytail";
+
+export type AvatarHairColor =
+  | "black"
+  | "dark-brown"
+  | "brown"
+  | "blonde"
+  | "ginger";
+
+export type AvatarAppearance = {
+  gender: AvatarGender;
+  faceShape: AvatarFaceShape;
+  skinTone: AvatarSkinTone;
+  eyeShape: AvatarEyeShape;
+  eyeColor: AvatarEyeColor;
+  eyebrowStyle: AvatarEyebrowStyle;
+  lipStyle: AvatarLipStyle;
+  hairStyle: AvatarHairStyle;
+  hairColor: AvatarHairColor;
+  freckles: boolean;
+};
+
 export type GameData = {
   tasks: Task[];
   coins: number;
@@ -25,6 +89,7 @@ export type GameData = {
   completedTasks: number;
   ownedItems: string[];
   equippedItems: EquippedItems;
+  avatarAppearance: AvatarAppearance;
   name: string;
   nickname: string;
 };
@@ -49,6 +114,19 @@ export const defaultEquippedItems: EquippedItems = {
   accessory: null,
   hair: null,
   special: null,
+};
+
+export const defaultAvatarAppearance: AvatarAppearance = {
+  gender: "girl",
+  faceShape: "soft",
+  skinTone: "light",
+  eyeShape: "round",
+  eyeColor: "brown",
+  eyebrowStyle: "soft",
+  lipStyle: "soft",
+  hairStyle: "bob",
+  hairColor: "dark-brown",
+  freckles: false,
 };
 
 function normalizeEquippedItems(
@@ -85,6 +163,117 @@ function normalizeEquippedItems(
       typeof data.special === "string"
         ? data.special
         : null,
+  };
+}
+
+function isOneOf<T extends string>(
+  value: unknown,
+  options: readonly T[]
+): value is T {
+  return (
+    typeof value === "string" &&
+    options.includes(value as T)
+  );
+}
+
+function normalizeAvatarAppearance(
+  value: unknown
+): AvatarAppearance {
+  if (!value || typeof value !== "object") {
+    return { ...defaultAvatarAppearance };
+  }
+
+  const data =
+    value as Partial<AvatarAppearance>;
+
+  return {
+    gender: isOneOf(data.gender, [
+      "girl",
+      "boy",
+    ])
+      ? data.gender
+      : defaultAvatarAppearance.gender,
+
+    faceShape: isOneOf(
+      data.faceShape,
+      ["soft", "round", "heart"]
+    )
+      ? data.faceShape
+      : defaultAvatarAppearance.faceShape,
+
+    skinTone: isOneOf(
+      data.skinTone,
+      [
+        "fair",
+        "light",
+        "medium",
+        "tan",
+        "deep",
+      ]
+    )
+      ? data.skinTone
+      : defaultAvatarAppearance.skinTone,
+
+    eyeShape: isOneOf(data.eyeShape, [
+      "round",
+      "almond",
+      "smile",
+    ])
+      ? data.eyeShape
+      : defaultAvatarAppearance.eyeShape,
+
+    eyeColor: isOneOf(data.eyeColor, [
+      "brown",
+      "hazel",
+      "green",
+      "blue",
+      "gray",
+    ])
+      ? data.eyeColor
+      : defaultAvatarAppearance.eyeColor,
+
+    eyebrowStyle: isOneOf(
+      data.eyebrowStyle,
+      [
+        "soft",
+        "arched",
+        "straight",
+      ]
+    )
+      ? data.eyebrowStyle
+      : defaultAvatarAppearance.eyebrowStyle,
+
+    lipStyle: isOneOf(data.lipStyle, [
+      "soft",
+      "full",
+      "smile",
+    ])
+      ? data.lipStyle
+      : defaultAvatarAppearance.lipStyle,
+
+    hairStyle: isOneOf(data.hairStyle, [
+      "short",
+      "bob",
+      "long",
+      "ponytail",
+    ])
+      ? data.hairStyle
+      : defaultAvatarAppearance.hairStyle,
+
+    hairColor: isOneOf(data.hairColor, [
+      "black",
+      "dark-brown",
+      "brown",
+      "blonde",
+      "ginger",
+    ])
+      ? data.hairColor
+      : defaultAvatarAppearance.hairColor,
+
+    freckles:
+      typeof data.freckles === "boolean"
+        ? data.freckles
+        : defaultAvatarAppearance.freckles,
   };
 }
 
@@ -147,7 +336,7 @@ export async function getGameData(): Promise<GameData | null> {
       supabase
         .from("profiles")
         .select(
-          "name, nickname, coins, xp, total_xp, completed_tasks, owned_items, equipped_items"
+          "name, nickname, coins, xp, total_xp, completed_tasks, owned_items, equipped_items, avatar_appearance"
         )
         .eq("id", user.id)
         .single(),
@@ -219,6 +408,11 @@ export async function getGameData(): Promise<GameData | null> {
     equippedItems:
       normalizeEquippedItems(
         profile.equipped_items
+      ),
+
+    avatarAppearance:
+      normalizeAvatarAppearance(
+        profile.avatar_appearance
       ),
 
     name:
@@ -382,4 +576,43 @@ export async function toggleEquippedItem(
   }
 
   return normalizeEquippedItems(data);
+}
+
+export async function updateAvatarAppearance(
+  appearance: AvatarAppearance
+): Promise<AvatarAppearance | null> {
+  const supabase = createClient();
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return null;
+  }
+
+  const { data, error } =
+    await supabase
+      .from("profiles")
+      .update({
+        avatar_appearance: appearance,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", user.id)
+      .select("avatar_appearance")
+      .single();
+
+  if (error || !data) {
+    console.error(
+      "Error updating avatar appearance:",
+      error
+    );
+
+    return null;
+  }
+
+  return normalizeAvatarAppearance(
+    data.avatar_appearance
+  );
 }
